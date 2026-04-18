@@ -1,0 +1,34 @@
+package ws
+
+import (
+	"context"
+	"testing"
+
+	"github.com/lwj5/bridgertun/internal/auth"
+	"github.com/lwj5/bridgertun/internal/wire"
+)
+
+func TestConnectionDispatchRoutesTerminalEnvelopeAndRemovesStream(t *testing.T) {
+	t.Parallel()
+
+	connection := NewConnection("session-1", &auth.Principal{Subject: "subject-1"}, nil, ConnectionOptions{})
+	stream, err := connection.OpenStream(context.Background(), &wire.Envelope{Method: "GET", Path: "/healthz"})
+	if err != nil {
+		t.Fatalf("OpenStream() error = %v", err)
+	}
+
+	connection.dispatch(&wire.Envelope{ID: stream.ID, Type: wire.TypeResponseHead, Status: 204})
+	head := <-stream.HeadCh()
+	if head == nil || head.Status != 204 {
+		t.Fatalf("head = %+v, want status 204", head)
+	}
+
+	connection.dispatch(&wire.Envelope{ID: stream.ID, Type: wire.TypeResponseEnd, EOF: true})
+	end := <-stream.ChunksCh()
+	if end == nil || end.Type != wire.TypeResponseEnd {
+		t.Fatalf("end = %+v, want response_end", end)
+	}
+	if _, ok := connection.streams.Get(stream.ID); ok {
+		t.Fatal("stream should be removed after terminal envelope")
+	}
+}
