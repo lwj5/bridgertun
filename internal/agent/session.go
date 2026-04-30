@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
 	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/wire"
 )

@@ -13,12 +13,13 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/valkey-io/valkey-go"
+
 	"github.com/lwj5/bridgertun/internal/api"
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
 	wspkg "github.com/lwj5/bridgertun/internal/ws"
-	"github.com/valkey-io/valkey-go"
 )
 
 func main() {
