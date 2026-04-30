@@ -10,6 +10,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/proxy"
 	"github.com/lwj5/bridgertun/internal/registry"
@@ -36,7 +37,7 @@ func (s handlerRegistryStub) Lookup(ctx context.Context, sessionID string) (*reg
 	return s.lookupFunc(ctx, sessionID)
 }
 
-func (s handlerRegistryStub) Dispatch(context.Context, string, *wire.Envelope) (registry.ProxyStream, error) {
+func (s handlerRegistryStub) Dispatch(context.Context, string, *wire.Envelope) (registry.ProxyStream, error) { //nolint:ireturn,lll
 	panic("unexpected Dispatch call")
 }
 

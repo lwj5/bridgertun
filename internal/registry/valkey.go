@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/valkey-io/valkey-go"
+
 	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/wire"
-	"github.com/valkey-io/valkey-go"
 )
 
 const (
