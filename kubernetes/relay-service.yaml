@@ -1,0 +1,30 @@
+---
+# Agents connect here over WebSocket. Exposed via Ingress.
+apiVersion: v1
+kind: Service
+metadata:
+  name: relay-ws
+spec:
+  type: ClusterIP
+  selector:
+    app: relay
+  ports:
+    - name: ws
+      port: 8443
+      targetPort: ws
+      protocol: TCP
+---
+# Tunnel clients send HTTP requests here. Internal only.
+apiVersion: v1
+kind: Service
+metadata:
+  name: relay-api
+spec:
+  type: ClusterIP
+  selector:
+    app: relay
+  ports:
+    - name: api
+      port: 80
+      targetPort: api
+      protocol: TCP
