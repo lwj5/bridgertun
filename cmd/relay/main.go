@@ -25,7 +25,8 @@ import (
 func main() {
 	cfg, err := loadConfig()
 	if err != nil {
-		panic(err)
+		_, _ = os.Stderr.WriteString("relay config: " + err.Error() + "\n")
+		os.Exit(2)
 	}
 	log.Init(cfg.LogLevel)
 	log.L().Info().Str("node", cfg.NodeID).Msg("starting relay")
