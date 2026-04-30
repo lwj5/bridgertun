@@ -1,0 +1,80 @@
+name: Release Artifact
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        os: [linux, windows, darwin]
+        arch: [amd64, arm64]
+        binary:
+          - name: bridgertun-relay
+            path: ./cmd/relay
+          - name: bridgertun-agent
+            path: ./cmd/agent
+        include:
+          - os: darwin
+            archive: zip
+          - os: linux
+            archive: tar.gz
+          - os: windows
+            extension: .exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+
+      - name: Install Garble
+        run: go install mvdan.cc/garble@latest
+
+      - name: Build
+        id: build
+        run: |
+          filename="${{ matrix.binary.name }}-${{ matrix.os }}-${{ matrix.arch }}${{ matrix.extension }}"
+          CGO_ENABLED=0 GOOS=${{ matrix.os }} GOARCH=${{ matrix.arch }} garble build -o ./tmp/${filename} ${{ matrix.binary.path }}
+
+          echo "FILENAME=${filename}" >> "$GITHUB_OUTPUT"
+
+      - name: Change Permissions
+        if: matrix.os == 'linux' || matrix.os == 'darwin'
+        run: |
+          chmod +x tmp/${{ steps.build.outputs.FILENAME }}
+
+      - name: Compress
+        if: matrix.archive != ''
+        run: |
+          cd tmp
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            zip -r ${{ steps.build.outputs.FILENAME }}.zip ${{ steps.build.outputs.FILENAME }}
+          elif [ "${{ matrix.archive }}" = "tar.gz" ]; then
+            tar -czf ${{ steps.build.outputs.FILENAME }}.tar.gz ${{ steps.build.outputs.FILENAME }}
+          fi
+
+      - name: Upload to GitHub Releases
+        if: matrix.archive == ''
+        uses: softprops/action-gh-release@v3
+        with:
+          files: tmp/${{ steps.build.outputs.FILENAME }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload to GitHub Releases (Compressed)
+        if: matrix.archive != ''
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            tmp/${{ steps.build.outputs.FILENAME }}
+            tmp/${{ steps.build.outputs.FILENAME }}.${{ matrix.archive }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
