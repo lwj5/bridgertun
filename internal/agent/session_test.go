@@ -11,7 +11,11 @@ func TestBuildDialURL(t *testing.T) {
 		want    string
 		wantErr bool
 	}{
-		{name: "preserves websocket url", rawURL: "wss://relay.example.com/v1/agent/connect", want: "wss://relay.example.com/v1/agent/connect"},
+		{
+			name:   "preserves websocket url",
+			rawURL: "wss://relay.example.com/v1/agent/connect",
+			want:   "wss://relay.example.com/v1/agent/connect",
+		},
 		{name: "rejects invalid url", rawURL: "://bad", wantErr: true},
 	}
 

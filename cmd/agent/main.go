@@ -10,9 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	zlog "github.com/rs/zerolog/log"
+
 	"github.com/lwj5/bridgertun/internal/agent"
 	"github.com/lwj5/bridgertun/internal/log"
-	zlog "github.com/rs/zerolog/log"
 )
 
 var randomFloat64 = rand.Float64

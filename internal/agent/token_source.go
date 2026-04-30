@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/lwj5/bridgertun/internal/log"
 	"golang.org/x/oauth2"
+
+	"github.com/lwj5/bridgertun/internal/log"
 )
 
 const (
