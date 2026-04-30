@@ -31,7 +31,7 @@ func (s stubRegistry) Lookup(context.Context, string) (*registry.SessionInfo, er
 	panic("unexpected Lookup call")
 }
 
-func (s stubRegistry) Dispatch(context.Context, string, *wire.Envelope) (registry.ProxyStream, error) {
+func (s stubRegistry) Dispatch(context.Context, string, *wire.Envelope) (registry.ProxyStream, error) { //nolint:ireturn
 	panic("unexpected Dispatch call")
 }
 

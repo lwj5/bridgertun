@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
