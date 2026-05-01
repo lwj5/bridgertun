@@ -1,5 +1,7 @@
+// Package banner provides the ASCII art banner for the application.
 package banner
 
+// Banner is the ASCII art banner for the application.
 const Banner = `
 oooooooooo.            o8o        .o8                                    .                           
 '888'   'Y8b           '"'       "888                                  .o8                           
