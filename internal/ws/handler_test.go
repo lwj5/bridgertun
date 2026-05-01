@@ -2,7 +2,10 @@ package ws
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/google/uuid"
@@ -56,6 +59,33 @@ func (s handlerRegistryStub) Close() error { return nil }
 
 var _ registry.Registry = handlerRegistryStub{}
 var _ = proxy.ErrConnGone
+
+func TestServeAgentConfig(t *testing.T) {
+	t.Parallel()
+
+	handler := NewHandler(HandlerConfig{
+		OIDCIssuerURL:     "https://issuer.example.com/realms/tunnel",
+		OIDCAgentClientID: "agent-client",
+	}, nil, handlerRegistryStub{}, "")
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/agent/config", nil)
+	handler.ServeAgentConfig(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+	var response agentConfigResponse
+	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if response.IssuerURL != "https://issuer.example.com/realms/tunnel" {
+		t.Fatalf("IssuerURL = %q", response.IssuerURL)
+	}
+	if response.ClientID != "agent-client" {
+		t.Fatalf("ClientID = %q", response.ClientID)
+	}
+}
 
 func TestResolveSessionIDRejectsInvalidResumeHint(t *testing.T) {
 	t.Parallel()

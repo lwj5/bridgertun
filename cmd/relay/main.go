@@ -72,7 +72,10 @@ func main() {
 		PingInterval:      cfg.WSPingInterval,
 		PongTimeout:       cfg.WSPongTimeout,
 		StreamIdleTimeout: cfg.StreamIdleTimeout,
+		OIDCIssuerURL:     cfg.OIDCIssuerURL,
+		OIDCAgentClientID: cfg.OIDCAgentClientID,
 	}, verifier, sessionRegistry, cfg.PublicBaseURL)
+	webSocketMux.Get("/v1/agent/config", webSocketHandler.ServeAgentConfig)
 	webSocketMux.Handle("/v1/agent/connect", webSocketHandler)
 	webSocketMux.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 
@@ -89,8 +92,6 @@ func main() {
 	apiServer := &http.Server{
 		Addr: cfg.APIAddr,
 		Handler: api.NewRouter(api.Config{
-			OIDCIssuerURL:       cfg.OIDCIssuerURL,
-			OIDCAgentClientID:   cfg.OIDCAgentClientID,
 			MaxRequestBodyBytes: cfg.MaxRequestBodyBytes,
 			TrustedProxies:      cfg.TrustedProxies,
 			StreamIdleTimeout:   cfg.StreamIdleTimeout,

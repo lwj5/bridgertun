@@ -15,6 +15,7 @@ Agent binaries in other languages remain fully supported.
              ┌───────────────────────────────────────────────┐
              │                relay (this repo)              │
              │                                               │
+ agent ──────►  :8443  /v1/agent/config   (OIDC discovery)  │
  agent ─WS──►  :8443  /v1/agent/connect                     │
              │           │                                   │
              │           ▼                                   │
@@ -27,10 +28,10 @@ Agent binaries in other languages remain fully supported.
 
 Two listeners in one process:
 
-| Port    | Purpose                                        |
-| ------- | ---------------------------------------------- |
-| `:8443` | Agent WebSocket endpoint (`/v1/agent/connect`) |
-| `:9000` | Public proxy + operator API                    |
+| Port    | Purpose                                                            |
+| ------- | ------------------------------------------------------------------ |
+| `:8443` | Agent endpoints: config discovery (`/v1/agent/config`) + WebSocket |
+| `:9000` | Proxy + operator API                                               |
 
 Multiple relay nodes share state via Valkey. Cross-node requests are routed
 through Valkey Streams so SSE and large responses stream correctly without
@@ -347,7 +348,7 @@ All settings are environment variables:
 | Variable                 | Default           | Description                                                       |
 | ------------------------ | ----------------- | ----------------------------------------------------------------- |
 | `RELAY_WS_ADDR`          | `:8443`           | Agent WebSocket listener                                          |
-| `RELAY_API_ADDR`         | `:9000`           | Public + operator API listener                                    |
+| `RELAY_API_ADDR`         | `:9000`           | Proxy + operator API listener                                     |
 | `RELAY_PUBLIC_URL`       | —                 | Override the `tunnel_url` base (e.g. `https://relay.example.com`) |
 | `RELAY_NODE_ID`          | hostname          | Unique ID for this instance in the Valkey registry                |
 | `OIDC_ISSUER_URL`        | **required**      | OIDC provider issuer URL (discovery endpoint)                     |

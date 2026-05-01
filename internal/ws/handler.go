@@ -2,6 +2,7 @@ package ws
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,6 +24,8 @@ type HandlerConfig struct {
 	PingInterval      time.Duration
 	PongTimeout       time.Duration
 	StreamIdleTimeout time.Duration
+	OIDCIssuerURL     string
+	OIDCAgentClientID string
 }
 
 // ResumeHeader is the request header an agent sets at WebSocket upgrade time
@@ -52,6 +55,24 @@ func NewHandler(
 	publicBaseURL string,
 ) *Handler {
 	return &Handler{config: config, verifier: verifier, registry: registry, baseURL: publicBaseURL}
+}
+
+type agentConfigResponse struct {
+	IssuerURL string `json:"issuer_url"`
+	ClientID  string `json:"client_id"`
+}
+
+// ServeAgentConfig handles GET /v1/agent/config. No auth required — returns
+// the OIDC issuer and client ID the agent needs to acquire a token.
+func (h *Handler) ServeAgentConfig(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(agentConfigResponse{
+		IssuerURL: h.config.OIDCIssuerURL,
+		ClientID:  h.config.OIDCAgentClientID,
+	}); err != nil {
+		log.L().Warn().Err(err).Msg("encode agent config response")
+	}
 }
 
 // ServeHTTP handles GET /v1/agent/connect. The agent must present a valid

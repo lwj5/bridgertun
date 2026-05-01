@@ -15,16 +15,9 @@ import (
 
 // Config holds the API server's runtime parameters.
 type Config struct {
-	OIDCIssuerURL       string
-	OIDCAgentClientID   string
 	MaxRequestBodyBytes int64
 	TrustedProxies      []*net.IPNet
 	StreamIdleTimeout   time.Duration
-}
-
-type agentDiscoveryResponse struct {
-	IssuerURL string `json:"issuer_url"`
-	ClientID  string `json:"client_id"`
 }
 
 // NewRouter builds the HTTP router that serves public proxy routes, operator
@@ -45,14 +38,6 @@ func NewRouter(cfg Config, registry registry.Registry, verifier *auth.Verifier, 
 		r.Get("/", operatorHandler.listSessions)
 		r.Get("/{sessionID}", operatorHandler.getSession)
 		r.Delete("/{sessionID}", operatorHandler.deleteSession)
-	})
-
-	// Agent discovery — public, no auth required.
-	r.Get("/v1/agent/config", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, agentDiscoveryResponse{
-			IssuerURL: cfg.OIDCIssuerURL,
-			ClientID:  cfg.OIDCAgentClientID,
-		})
 	})
 
 	// Health.
