@@ -121,7 +121,7 @@ func (r *ValkeyRegistry) Register(ctx context.Context, info *SessionInfo, sender
 	if info.Subject != "" {
 		saddCmd := r.valkeyClient.B().Sadd().Key(bySubjectKey(info.Subject)).Member(info.SessionID).Build()
 		if err := r.valkeyClient.Do(ctx, saddCmd).Error(); err != nil {
-			log.Warn().Err(err).Str("session", info.SessionID).Msg("sadd session by subject")
+			log.Ctx(ctx).Warn().Err(err).Str("session", info.SessionID).Msg("sadd session by subject")
 		}
 	}
 
@@ -149,7 +149,7 @@ func (r *ValkeyRegistry) refreshTTL(ctx context.Context, sessionID string) {
 		case <-ticker.C:
 			expireCmd := r.valkeyClient.B().Expire().Key(sessionKey(sessionID)).Seconds(int64(sessionTTL.Seconds())).Build()
 			if err := r.valkeyClient.Do(ctx, expireCmd).Error(); err != nil {
-				log.Warn().Err(err).Str("session", sessionID).Msg("refresh TTL")
+				log.Ctx(ctx).Warn().Err(err).Str("session", sessionID).Msg("refresh TTL")
 			}
 		}
 	}
@@ -165,12 +165,12 @@ func (r *ValkeyRegistry) Unregister(ctx context.Context, sessionID string) error
 		entry.cancel()
 	}
 	if err := r.valkeyClient.Do(ctx, r.valkeyClient.B().Del().Key(sessionKey(sessionID)).Build()).Error(); err != nil {
-		log.Warn().Err(err).Str("session", sessionID).Msg("unregister del session")
+		log.Ctx(ctx).Warn().Err(err).Str("session", sessionID).Msg("unregister del session")
 	}
 	if ok && entry.info != nil && entry.info.Subject != "" {
 		sremCmd := r.valkeyClient.B().Srem().Key(bySubjectKey(entry.info.Subject)).Member(sessionID).Build()
 		if err := r.valkeyClient.Do(ctx, sremCmd).Error(); err != nil {
-			log.Warn().Err(err).Str("session", sessionID).Msg("unregister srem")
+			log.Ctx(ctx).Warn().Err(err).Str("session", sessionID).Msg("unregister srem")
 		}
 	}
 	return nil
@@ -222,7 +222,7 @@ func (r *ValkeyRegistry) Detach(ctx context.Context, sessionID string) error {
 	}
 	setCmd := r.valkeyClient.B().Set().Key(sessionKey(sessionID)).Value(string(payload)).Ex(r.resumeGraceTTL).Build()
 	if err := r.valkeyClient.Do(ctx, setCmd).Error(); err != nil {
-		log.Warn().Err(err).Str("session", sessionID).Msg("detach set")
+		log.Ctx(ctx).Warn().Err(err).Str("session", sessionID).Msg("detach set")
 	}
 	return nil
 }
@@ -427,7 +427,7 @@ func (r *ValkeyRegistry) controlSubscriber(ctx context.Context) {
 		err := r.valkeyClient.Receive(ctx, subscribeCmd, func(msg valkey.PubSubMessage) {
 			var controlMessage ctrlMessage
 			if err := json.Unmarshal([]byte(msg.Message), &controlMessage); err != nil {
-				log.Warn().Err(err).Msg("ctrl decode")
+				log.Ctx(ctx).Warn().Err(err).Msg("ctrl decode")
 				return
 			}
 			r.handleCtrl(ctx, &controlMessage)
@@ -439,7 +439,7 @@ func (r *ValkeyRegistry) controlSubscriber(ctx context.Context) {
 		if errors.Is(err, context.Canceled) {
 			return
 		}
-		log.Warn().Err(err).Dur("backoff", backoff).Msg("ctrl subscribe")
+		log.Ctx(ctx).Warn().Err(err).Dur("backoff", backoff).Msg("ctrl subscribe")
 		select {
 		case <-ctx.Done():
 			return
@@ -460,7 +460,7 @@ func (r *ValkeyRegistry) handleCtrl(ctx context.Context, message *ctrlMessage) {
 		}
 		envelope, err := wire.Decode(message.EnvelopeFrame)
 		if err != nil {
-			log.Warn().Err(err).Str("requestID", message.RequestID).Msg("ctrl start envelope decode")
+			log.Ctx(ctx).Warn().Err(err).Str("requestID", message.RequestID).Msg("ctrl start envelope decode")
 			return
 		}
 		r.runRemote(ctx, message, envelope)
@@ -485,7 +485,7 @@ func (r *ValkeyRegistry) handleCtrl(ctx context.Context, message *ctrlMessage) {
 func (r *ValkeyRegistry) runRemote(ctx context.Context, message *ctrlMessage, envelope *wire.Envelope) {
 	sessionID := message.SessionID
 	if sessionID == "" {
-		log.Warn().Str("requestID", message.RequestID).Msg("remote start without session id")
+		log.Ctx(ctx).Warn().Str("requestID", message.RequestID).Msg("remote start without session id")
 		return
 	}
 	r.mu.RLock()
@@ -544,7 +544,7 @@ func (r *ValkeyRegistry) runRemote(ctx context.Context, message *ctrlMessage, en
 func (r *ValkeyRegistry) xaddEnvelope(ctx context.Context, stream string, envelope *wire.Envelope) {
 	frame, err := wire.Encode(envelope)
 	if err != nil {
-		log.Warn().Err(err).Str("stream", stream).Msg("xadd encode")
+		log.Ctx(ctx).Warn().Err(err).Str("stream", stream).Msg("xadd encode")
 		return
 	}
 	timeoutCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -556,11 +556,11 @@ func (r *ValkeyRegistry) xaddEnvelope(ctx context.Context, stream string, envelo
 		FieldValue().FieldValue("e", valkey.BinaryString(frame)).
 		Build()
 	if err := r.valkeyClient.Do(timeoutCtx, xaddCmd).Error(); err != nil {
-		log.Warn().Err(err).Str("stream", stream).Msg("xadd")
+		log.Ctx(ctx).Warn().Err(err).Str("stream", stream).Msg("xadd")
 	}
 	expireCmd := r.valkeyClient.B().Expire().Key(stream).Seconds(int64(requestStreamTTL.Seconds())).Build()
 	if err := r.valkeyClient.Do(timeoutCtx, expireCmd).Error(); err != nil {
-		log.Warn().Err(err).Str("stream", stream).Msg("xadd expire")
+		log.Ctx(ctx).Warn().Err(err).Str("stream", stream).Msg("xadd expire")
 	}
 }
 
