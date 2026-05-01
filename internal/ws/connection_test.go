@@ -8,10 +8,12 @@ import (
 	"github.com/lwj5/bridgertun/internal/wire"
 )
 
+const testSubject = "subject-1"
+
 func TestConnectionDispatchRoutesTerminalEnvelopeAndRemovesStream(t *testing.T) {
 	t.Parallel()
 
-	connection := NewConnection("session-1", &auth.Principal{Subject: "subject-1"}, nil, ConnectionOptions{})
+	connection := NewConnection("session-1", &auth.Principal{Subject: testSubject}, nil, ConnectionOptions{})
 	stream, err := connection.OpenStream(context.Background(), &wire.Envelope{Method: "GET", Path: "/healthz"})
 	if err != nil {
 		t.Fatalf("OpenStream() error = %v", err)

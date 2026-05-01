@@ -65,7 +65,7 @@ func TestOperatorListSessionsSkipsNilEntries(t *testing.T) {
 			return []*registry.SessionInfo{
 				nil,
 				{
-					SessionID:      "session-1",
+					SessionID:      testSessionID,
 					Subject:        "subject-1",
 					TunnelAuthHash: "secret-hash",
 				},
@@ -89,8 +89,8 @@ func TestOperatorListSessionsSkipsNilEntries(t *testing.T) {
 	if len(sessions) != 1 {
 		t.Fatalf("len(sessions) = %d, want 1", len(sessions))
 	}
-	if sessions[0].SessionID != "session-1" {
-		t.Fatalf("sessionID = %q, want %q", sessions[0].SessionID, "session-1")
+	if sessions[0].SessionID != testSessionID {
+		t.Fatalf("sessionID = %q, want %q", sessions[0].SessionID, testSessionID)
 	}
 	if sessions[0].TunnelAuthHash != "" {
 		t.Fatalf("TunnelAuthHash = %q, want redacted empty string", sessions[0].TunnelAuthHash)
