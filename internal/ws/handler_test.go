@@ -94,7 +94,7 @@ func TestResolveSessionIDRejectsInvalidResumeHint(t *testing.T) {
 	t.Parallel()
 
 	handler := &Handler{}
-	_, _, err := handler.resolveSessionID(context.Background(), "not-a-uuid", &auth.Principal{Subject: "subject-1"})
+	_, _, err := handler.resolveSessionID(context.Background(), "not-a-uuid", &auth.Principal{Subject: testSubject})
 
 	var resumeErr *resumeError
 	if !errors.As(err, &resumeErr) {
@@ -115,7 +115,7 @@ func TestResolveSessionIDRejectsDifferentPrincipal(t *testing.T) {
 		},
 	}}
 
-	_, _, err := handler.resolveSessionID(context.Background(), hint, &auth.Principal{Subject: "subject-1"})
+	_, _, err := handler.resolveSessionID(context.Background(), hint, &auth.Principal{Subject: testSubject})
 
 	var resumeErr *resumeError
 	if !errors.As(err, &resumeErr) {
@@ -132,11 +132,11 @@ func TestResolveSessionIDReturnsExistingDetachedSessionForSamePrincipal(t *testi
 	hint := uuid.NewString()
 	handler := &Handler{registry: handlerRegistryStub{
 		lookupFunc: func(context.Context, string) (*registry.SessionInfo, error) {
-			return &registry.SessionInfo{SessionID: hint, Subject: "subject-1", State: registry.SessionStateDetached}, nil
+			return &registry.SessionInfo{SessionID: hint, Subject: testSubject, State: registry.SessionStateDetached}, nil
 		},
 	}}
 
-	sessionID, resumed, err := handler.resolveSessionID(context.Background(), hint, &auth.Principal{Subject: "subject-1"})
+	sessionID, resumed, err := handler.resolveSessionID(context.Background(), hint, &auth.Principal{Subject: testSubject})
 	if err != nil {
 		t.Fatalf("resolveSessionID() error = %v", err)
 	}

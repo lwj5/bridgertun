@@ -131,6 +131,9 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	flusher, _ := w.(http.Flusher)
 	wroteHead := false
+	awaitingFirstFrame := true
+	requestTimeout := time.NewTimer(h.cfg.ProxyRequestTimeout)
+	defer requestTimeout.Stop()
 	idleTimer := time.NewTimer(h.cfg.StreamIdleTimeout)
 	defer idleTimer.Stop()
 	resetIdle := func() {
@@ -167,6 +170,10 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		select {
 		case <-r.Context().Done():
 			return
+		case <-requestTimeout.C:
+			sessionLogger.Warn().Dur("wait", h.cfg.ProxyRequestTimeout).Msg("upstream response timeout")
+			http.Error(w, "upstream response timeout", http.StatusGatewayTimeout)
+			return
 		case <-idleTimer.C:
 			sessionLogger.Warn().Msg("stream idle timeout")
 			if !wroteHead {
@@ -190,6 +197,15 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					http.Error(w, "upstream error", http.StatusBadGateway)
 				}
 				return
+			}
+			if awaitingFirstFrame {
+				awaitingFirstFrame = false
+				if !requestTimeout.Stop() {
+					select {
+					case <-requestTimeout.C:
+					default:
+					}
+				}
 			}
 			resetIdle()
 			env := res.env

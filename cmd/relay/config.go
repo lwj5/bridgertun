@@ -15,10 +15,9 @@ type config struct {
 	WSAddr  string `env:"RELAY_WS_ADDR"  envDefault:":8443"`
 	APIAddr string `env:"RELAY_API_ADDR" envDefault:":9000"`
 
-	OIDCIssuerURL     string        `env:"OIDC_ISSUER_URL,required"`
-	OIDCAudience      string        `env:"OIDC_AUDIENCE,required"`
-	OIDCAgentClientID string        `env:"OIDC_AGENT_CLIENT_ID,required"`
-	OIDCJWKSRefresh   time.Duration `env:"OIDC_JWKS_REFRESH" envDefault:"10m"`
+	OIDCIssuerURL     string `env:"OIDC_ISSUER_URL,required"`
+	OIDCAudience      string `env:"OIDC_AUDIENCE,required"`
+	OIDCAgentClientID string `env:"OIDC_AGENT_CLIENT_ID,required"`
 
 	ValkeyAddr     string `env:"VALKEY_ADDR,required"`
 	ValkeyPassword string `env:"VALKEY_PASSWORD"`
@@ -27,7 +26,7 @@ type config struct {
 
 	NodeID string `env:"RELAY_NODE_ID"`
 
-	PublicBaseURL string `env:"RELAY_PUBLIC_URL,required"`
+	RelayBaseURL string `env:"RELAY_URL,required"`
 
 	AllowedOrigins []string `env:"RELAY_ALLOWED_ORIGINS" envSeparator:","`
 
@@ -64,14 +63,17 @@ func loadConfig() (*config, error) {
 		return nil, fmt.Errorf("RELAY_NODE_ID could not be determined")
 	}
 
-	cfg.PublicBaseURL = strings.TrimRight(cfg.PublicBaseURL, "/")
-	parsedURL, err := url.Parse(cfg.PublicBaseURL)
+	cfg.RelayBaseURL = strings.TrimRight(cfg.RelayBaseURL, "/")
+	parsedURL, err := url.Parse(cfg.RelayBaseURL)
 	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
-		return nil, fmt.Errorf("RELAY_PUBLIC_URL must be an absolute http(s) URL: %q", cfg.PublicBaseURL)
+		return nil, fmt.Errorf("RELAY_URL must be an absolute http(s) URL: %q", cfg.RelayBaseURL)
 	}
 
 	if cfg.ResumeGraceTTL <= 0 {
 		return nil, fmt.Errorf("RESUME_GRACE_TTL must be > 0")
+	}
+	if cfg.ProxyRequestTimeout <= 0 {
+		return nil, fmt.Errorf("PROXY_REQUEST_TIMEOUT must be > 0")
 	}
 	if cfg.MaxRequestBodyBytes <= 0 {
 		return nil, fmt.Errorf("MAX_REQUEST_BODY_BYTES must be > 0")

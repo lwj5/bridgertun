@@ -1,13 +1,26 @@
 package api
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/lwj5/bridgertun/internal/registry"
+	"github.com/lwj5/bridgertun/internal/wire"
 )
 
-const testAgentToken = "agenttoken"
+const (
+	testAgentToken        = "agenttoken"
+	testSessionID         = "session-1"
+	testTunnelSecretQuery = "tunnel_secret=relaytoken"
+)
 
 func TestStripTunnelAuthQuery(t *testing.T) {
 	cases := []struct {
@@ -18,9 +31,9 @@ func TestStripTunnelAuthQuery(t *testing.T) {
 	}{
 		{
 			name:    "drops tunnel_secret and agent_secret",
-			raw:     "tunnel_secret=relaytoken&agent_secret=agenttoken&foo=bar",
+			raw:     testTunnelSecretQuery + "&agent_secret=agenttoken&foo=bar",
 			mustHas: []string{"foo=bar"},
-			mustNot: []string{"tunnel_secret=relaytoken", "agent_secret=agenttoken"},
+			mustNot: []string{testTunnelSecretQuery, "agent_secret=agenttoken"},
 		},
 		{
 			name:    "drops agent secret when no tunnel secret",
@@ -30,9 +43,9 @@ func TestStripTunnelAuthQuery(t *testing.T) {
 		},
 		{
 			name:    "only tunnel secret yields empty",
-			raw:     "tunnel_secret=relaytoken",
+			raw:     testTunnelSecretQuery,
 			mustHas: nil,
-			mustNot: []string{"tunnel_secret=relaytoken"},
+			mustNot: []string{testTunnelSecretQuery},
 		},
 	}
 
@@ -125,5 +138,82 @@ func TestFirstHeaderValue(t *testing.T) {
 	}
 	if got := firstHeaderValue(h, "X-Tunnel-Agent-Auth"); got != testAgentToken {
 		t.Fatalf("got %q", got)
+	}
+}
+
+type timeoutRegistry struct {
+	tunnelAuthHash string
+}
+
+func (timeoutRegistry) Register(context.Context, *registry.SessionInfo, registry.LocalSender) error {
+	panic("unexpected Register call")
+}
+
+func (timeoutRegistry) Unregister(context.Context, string) error {
+	panic("unexpected Unregister call")
+}
+
+func (timeoutRegistry) Detach(context.Context, string) error {
+	panic("unexpected Detach call")
+}
+
+func (r timeoutRegistry) Lookup(context.Context, string) (*registry.SessionInfo, error) {
+	return &registry.SessionInfo{SessionID: testSessionID, TunnelAuthHash: r.tunnelAuthHash}, nil
+}
+
+//nolint:ireturn // Test stub matches the registry interface.
+func (timeoutRegistry) Dispatch(
+	context.Context,
+	string,
+	*wire.Envelope,
+) (registry.ProxyStream, error) {
+	return timeoutProxyStream{}, nil
+}
+
+func (timeoutRegistry) List(context.Context, registry.Filter) ([]*registry.SessionInfo, error) {
+	panic("unexpected List call")
+}
+
+func (timeoutRegistry) ForceClose(context.Context, string) error {
+	panic("unexpected ForceClose call")
+}
+
+func (timeoutRegistry) Close() error {
+	return nil
+}
+
+type timeoutProxyStream struct{}
+
+func (timeoutProxyStream) Receive(ctx context.Context) (*wire.Envelope, error) {
+	<-ctx.Done()
+	return nil, fmt.Errorf("receive canceled: %w", ctx.Err())
+}
+
+func (timeoutProxyStream) Cancel() {}
+
+func (timeoutProxyStream) Close() error { return nil }
+
+func TestProxyHandlerTimesOutBeforeFirstResponseFrame(t *testing.T) {
+	t.Parallel()
+
+	handler := newProxyHandler(Config{
+		MaxRequestBodyBytes: 1 << 20,
+		ProxyRequestTimeout: 10 * time.Millisecond,
+		StreamIdleTimeout:   time.Second,
+	}, timeoutRegistry{tunnelAuthHash: mustTunnelHash(t, "relay-secret")})
+	router := chi.NewRouter()
+	router.Handle("/v1/tunnel/{sessionID}", handler)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/tunnel/"+testSessionID, nil)
+	request.Header.Set("X-Tunnel-Auth", "relay-secret")
+
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusGatewayTimeout {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusGatewayTimeout)
+	}
+	if !strings.Contains(recorder.Body.String(), "upstream response timeout") {
+		t.Fatalf("body = %q, want timeout message", recorder.Body.String())
 	}
 }
