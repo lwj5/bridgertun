@@ -12,6 +12,7 @@ import (
 const (
 	testIssuerURL = "http://localhost:8080/realms/tunnel"
 	testClientID  = "tunnel-agent"
+	testLocalURL  = "http://127.0.0.1:3000"
 	flagRelayURL  = "--relay-url"
 	flagLocalURL  = "--local-url"
 )
@@ -37,7 +38,7 @@ func TestLoadConfigValid(t *testing.T) {
 
 	cfg, err := loadConfig(context.Background(), server.Client(), []string{
 		flagRelayURL, server.URL,
-		flagLocalURL, "http://127.0.0.1:3000",
+		flagLocalURL, testLocalURL,
 	})
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
@@ -74,7 +75,7 @@ func TestLoadConfigLogLevelDefault(t *testing.T) {
 
 	cfg, err := loadConfig(context.Background(), server.Client(), []string{
 		flagRelayURL, server.URL,
-		flagLocalURL, "http://127.0.0.1:3000",
+		flagLocalURL, testLocalURL,
 	})
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
@@ -96,7 +97,7 @@ func TestLoadConfigLogLevelOverride(t *testing.T) {
 
 	cfg, err := loadConfig(context.Background(), server.Client(), []string{
 		flagRelayURL, server.URL,
-		flagLocalURL, "http://127.0.0.1:3000",
+		flagLocalURL, testLocalURL,
 		"--log-level", "debug",
 	})
 	if err != nil {
@@ -116,7 +117,7 @@ func TestLoadConfigJSONLogsOverride(t *testing.T) {
 
 	cfg, err := loadConfig(context.Background(), server.Client(), []string{
 		flagRelayURL, server.URL,
-		flagLocalURL, "http://127.0.0.1:3000",
+		flagLocalURL, testLocalURL,
 		"--json-logs",
 	})
 	if err != nil {
