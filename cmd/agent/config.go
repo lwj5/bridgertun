@@ -24,6 +24,7 @@ type agentArgs struct {
 	RelayURL string `arg:"-r,--relay-url,required,env:RELAY_URL" help:"Relay base URL, e.g. https://relay.example.com"`
 	LocalURL string `arg:"-l,--local-url,required,env:LOCAL_URL" help:"Base URL of the local HTTP service to expose"`
 	LogLevel string `arg:"-v,--log-level,env:LOG_LEVEL" default:"info" help:"Log level: debug, info, warn, error"`
+	JSONLogs bool   `arg:"--json-logs,env:JSON_LOGS" help:"Emit structured JSON logs instead of the default console logs"`
 }
 
 type agentConfig struct {
@@ -41,6 +42,7 @@ type agentConfig struct {
 	BcryptCost int
 
 	LogLevel string
+	JSONLogs bool
 
 	ReconnectMaxBackoff  time.Duration
 	ReconnectStableReset time.Duration
@@ -86,6 +88,7 @@ func loadConfig(ctx context.Context, httpClient *http.Client, rawArgs []string) 
 		OIDCTokenRefreshSkew: 30 * time.Second,
 		BcryptCost:           10,
 		LogLevel:             parsed.LogLevel,
+		JSONLogs:             parsed.JSONLogs,
 		ReconnectMaxBackoff:  60 * time.Second,
 		ReconnectStableReset: 60 * time.Second,
 		ChunkSizeBytes:       32 * 1024,

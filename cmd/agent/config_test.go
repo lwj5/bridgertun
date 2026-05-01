@@ -75,6 +75,9 @@ func TestLoadConfigLogLevelDefault(t *testing.T) {
 	if cfg.LogLevel != "info" {
 		t.Fatalf("expected default log level 'info', got %q", cfg.LogLevel)
 	}
+	if cfg.JSONLogs {
+		t.Fatal("expected JSON logs to default to false")
+	}
 }
 
 func TestLoadConfigLogLevelOverride(t *testing.T) {
@@ -94,6 +97,26 @@ func TestLoadConfigLogLevelOverride(t *testing.T) {
 	}
 	if cfg.LogLevel != "debug" {
 		t.Fatalf("expected log level 'debug', got %q", cfg.LogLevel)
+	}
+}
+
+func TestLoadConfigJSONLogsOverride(t *testing.T) {
+	server := newDiscoveryServer(t, relayDiscovery{
+		IssuerURL: "http://localhost:8080/realms/tunnel",
+		ClientID:  "tunnel-agent",
+	})
+	defer server.Close()
+
+	cfg, err := loadConfig(context.Background(), server.Client(), []string{
+		"--relay-url", server.URL,
+		"--local-url", "http://127.0.0.1:3000",
+		"--json-logs",
+	})
+	if err != nil {
+		t.Fatalf("loadConfig() error = %v", err)
+	}
+	if !cfg.JSONLogs {
+		t.Fatal("expected JSON logs to be enabled")
 	}
 }
 

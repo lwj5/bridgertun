@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"net/http"
 	"os"
@@ -17,6 +18,22 @@ import (
 )
 
 var randomFloat64 = rand.Float64
+
+const startupBanner = `
+ ____       _     _                 _
+| __ ) _ __(_) __| | __ _  ___ _ __| |_ _   _ _ __
+|  _ \\| '__| |/ _  |/ _  |/ _ \\ '__| __| | | | '_ \\
+| |_) | |  | | (_| | (_| |  __/ |  | |_| |_| | | | |
+|____/|_|  |_|\\__,_|\\__, |\\___|_|   \\__|\\__,_|_| |_|
+					 |___/
+
+	_                    _
+   / \\   __ _  ___ _ __ | |_
+  / _ \\ / _  |/ _ \\ '_ \\| __|
+ / ___ \\ (_| |  __/ | | | |_
+/_/   \\_\\__, |\\___|_| |_|\\__|
+		  |___/
+`
 
 func newOIDCTokenSource(ctx context.Context, cfg *agentConfig) (agent.TokenSource, error) { //nolint:ireturn
 	return agent.NewOIDCTokenSource(ctx, agent.OIDCConfig{ //nolint:wrapcheck
@@ -48,19 +65,25 @@ func main() {
 		_, _ = os.Stderr.WriteString("agent config: " + err.Error() + "\n")
 		os.Exit(2)
 	}
-	logutil.Init(cfg.LogLevel)
+	if cfg.JSONLogs {
+		logutil.Init(cfg.LogLevel)
+	} else {
+		logutil.InitConsole(cfg.LogLevel)
+	}
+	_, _ = fmt.Fprint(os.Stdout, startupBanner)
 	log.Info().
 		Str("relay", cfg.RelayWSURL).
 		Str("local", cfg.LocalServiceURL).
 		Msg("starting agent")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	authSource, err := newOIDCTokenSource(ctx, cfg)
 	if err != nil {
+		stop()
 		log.Fatal().Err(err).Msg("initialize oidc auth")
 	}
+	defer stop()
 
 	// Resume state is kept across reconnect attempts so the agent can ask the
 	// relay to resume the same session ID (preserving the tunnel URL and

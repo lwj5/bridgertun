@@ -35,7 +35,6 @@ func main() {
 	log.Info().Str("node", cfg.NodeID).Msg("starting relay")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	verifier, err := auth.NewVerifier(ctx, cfg.OIDCIssuerURL, cfg.OIDCAudience)
 	if err != nil {
@@ -54,7 +53,6 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("valkey client")
 	}
-	defer valkeyClient.Close()
 
 	sessionRegistry, err := registry.NewValkeyRegistry(
 		ctx, valkeyClient, cfg.NodeID, cfg.ResumeGraceTTL,
@@ -62,6 +60,8 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("registry init")
 	}
+	defer stop()
+	defer valkeyClient.Close()
 	defer func() {
 		if err := sessionRegistry.Close(); err != nil {
 			log.Warn().Err(err).Msg("registry close")
