@@ -17,7 +17,5 @@ jobs:
       - name: Draft release
         uses: release-drafter/release-drafter@v7
         id: release_drafter
-        with:
-          disable-autolabeler: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
