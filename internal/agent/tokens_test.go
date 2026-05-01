@@ -45,8 +45,8 @@ func TestFormatOperatorBlockIncludesExamples(t *testing.T) {
 	t.Parallel()
 
 	tokens := &sessionTokens{
-		RelayToken: "relay-token",
-		AgentToken: "agent-token",
+		RelayToken: testRelayToken,
+		AgentToken: testAgentToken,
 	}
 
 	got := formatOperatorBlock("session-123", "https://relay.example.com/v1/tunnel/session-123/", tokens)
@@ -73,8 +73,8 @@ func TestTunnelURLWithCredentialsPreservesExistingQuery(t *testing.T) {
 	t.Parallel()
 
 	tokens := &sessionTokens{
-		RelayToken: "relay-token",
-		AgentToken: "agent-token",
+		RelayToken: testRelayToken,
+		AgentToken: testAgentToken,
 	}
 
 	got := tunnelURLWithCredentials("https://relay.example.com/v1/tunnel/session-123/events?stream=1", tokens)
@@ -87,10 +87,10 @@ func TestTunnelURLWithCredentialsPreservesExistingQuery(t *testing.T) {
 	if query.Get("stream") != "1" {
 		t.Fatalf("stream query = %q, want 1", query.Get("stream"))
 	}
-	if query.Get("tunnel_secret") != "relay-token" {
+	if query.Get("tunnel_secret") != testRelayToken {
 		t.Fatalf("tunnel_secret = %q, want relay-token", query.Get("tunnel_secret"))
 	}
-	if query.Get("agent_secret") != "agent-token" {
+	if query.Get("agent_secret") != testAgentToken {
 		t.Fatalf("agent_secret = %q, want agent-token", query.Get("agent_secret"))
 	}
 }
@@ -98,11 +98,11 @@ func TestTunnelURLWithCredentialsPreservesExistingQuery(t *testing.T) {
 func TestExampleHeaders(t *testing.T) {
 	t.Parallel()
 
-	headers := exampleHeaders(&sessionTokens{RelayToken: "relay-token", AgentToken: "agent-token"})
-	if got := headers.Get("X-Tunnel-Auth"); got != "relay-token" {
+	headers := exampleHeaders(&sessionTokens{RelayToken: testRelayToken, AgentToken: testAgentToken})
+	if got := headers.Get("X-Tunnel-Auth"); got != testRelayToken {
 		t.Fatalf("X-Tunnel-Auth = %q, want relay-token", got)
 	}
-	if got := headers.Get("X-Tunnel-Agent-Auth"); got != "agent-token" {
+	if got := headers.Get("X-Tunnel-Agent-Auth"); got != testAgentToken {
 		t.Fatalf("X-Tunnel-Agent-Auth = %q, want agent-token", got)
 	}
 }

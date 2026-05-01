@@ -16,7 +16,11 @@ import (
 	"github.com/lwj5/bridgertun/internal/wire"
 )
 
-const testAgentToken = "agenttoken"
+const (
+	testAgentToken        = "agenttoken"
+	testSessionID         = "session-1"
+	testTunnelSecretQuery = "tunnel_secret=relaytoken"
+)
 
 func TestStripTunnelAuthQuery(t *testing.T) {
 	cases := []struct {
@@ -27,9 +31,9 @@ func TestStripTunnelAuthQuery(t *testing.T) {
 	}{
 		{
 			name:    "drops tunnel_secret and agent_secret",
-			raw:     "tunnel_secret=relaytoken&agent_secret=agenttoken&foo=bar",
+			raw:     testTunnelSecretQuery + "&agent_secret=agenttoken&foo=bar",
 			mustHas: []string{"foo=bar"},
-			mustNot: []string{"tunnel_secret=relaytoken", "agent_secret=agenttoken"},
+			mustNot: []string{testTunnelSecretQuery, "agent_secret=agenttoken"},
 		},
 		{
 			name:    "drops agent secret when no tunnel secret",
@@ -39,9 +43,9 @@ func TestStripTunnelAuthQuery(t *testing.T) {
 		},
 		{
 			name:    "only tunnel secret yields empty",
-			raw:     "tunnel_secret=relaytoken",
+			raw:     testTunnelSecretQuery,
 			mustHas: nil,
-			mustNot: []string{"tunnel_secret=relaytoken"},
+			mustNot: []string{testTunnelSecretQuery},
 		},
 	}
 
@@ -154,7 +158,7 @@ func (timeoutRegistry) Detach(context.Context, string) error {
 }
 
 func (r timeoutRegistry) Lookup(context.Context, string) (*registry.SessionInfo, error) {
-	return &registry.SessionInfo{SessionID: "session-1", TunnelAuthHash: r.tunnelAuthHash}, nil
+	return &registry.SessionInfo{SessionID: testSessionID, TunnelAuthHash: r.tunnelAuthHash}, nil
 }
 
 //nolint:ireturn // Test stub matches the registry interface.
@@ -201,7 +205,7 @@ func TestProxyHandlerTimesOutBeforeFirstResponseFrame(t *testing.T) {
 	router.Handle("/v1/tunnel/{sessionID}", handler)
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/v1/tunnel/session-1", nil)
+	request := httptest.NewRequest(http.MethodGet, "/v1/tunnel/"+testSessionID, nil)
 	request.Header.Set("X-Tunnel-Auth", "relay-secret")
 
 	router.ServeHTTP(recorder, request)

@@ -9,6 +9,13 @@ import (
 	"testing"
 )
 
+const (
+	testIssuerURL = "http://localhost:8080/realms/tunnel"
+	testClientID  = "tunnel-agent"
+	flagRelayURL  = "--relay-url"
+	flagLocalURL  = "--local-url"
+)
+
 func newDiscoveryServer(t *testing.T, d relayDiscovery) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -23,14 +30,14 @@ func newDiscoveryServer(t *testing.T, d relayDiscovery) *httptest.Server {
 
 func TestLoadConfigValid(t *testing.T) {
 	server := newDiscoveryServer(t, relayDiscovery{
-		IssuerURL: "http://localhost:8080/realms/tunnel",
-		ClientID:  "tunnel-agent",
+		IssuerURL: testIssuerURL,
+		ClientID:  testClientID,
 	})
 	defer server.Close()
 
 	cfg, err := loadConfig(context.Background(), server.Client(), []string{
-		"--relay-url", server.URL,
-		"--local-url", "http://127.0.0.1:3000",
+		flagRelayURL, server.URL,
+		flagLocalURL, "http://127.0.0.1:3000",
 	})
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
@@ -38,7 +45,7 @@ func TestLoadConfigValid(t *testing.T) {
 	if cfg.OIDCDeviceScope == "" {
 		t.Fatalf("OIDCDeviceScope must have a default")
 	}
-	if cfg.OIDCIssuerURL != "http://localhost:8080/realms/tunnel" {
+	if cfg.OIDCIssuerURL != testIssuerURL {
 		t.Fatalf("unexpected issuer URL: %q", cfg.OIDCIssuerURL)
 	}
 	if !strings.HasSuffix(cfg.RelayWSURL, relayConnectPath) {
@@ -60,14 +67,14 @@ func TestLoadConfigMissingRequired(t *testing.T) {
 
 func TestLoadConfigLogLevelDefault(t *testing.T) {
 	server := newDiscoveryServer(t, relayDiscovery{
-		IssuerURL: "http://localhost:8080/realms/tunnel",
-		ClientID:  "tunnel-agent",
+		IssuerURL: testIssuerURL,
+		ClientID:  testClientID,
 	})
 	defer server.Close()
 
 	cfg, err := loadConfig(context.Background(), server.Client(), []string{
-		"--relay-url", server.URL,
-		"--local-url", "http://127.0.0.1:3000",
+		flagRelayURL, server.URL,
+		flagLocalURL, "http://127.0.0.1:3000",
 	})
 	if err != nil {
 		t.Fatalf("loadConfig() error = %v", err)
@@ -82,14 +89,14 @@ func TestLoadConfigLogLevelDefault(t *testing.T) {
 
 func TestLoadConfigLogLevelOverride(t *testing.T) {
 	server := newDiscoveryServer(t, relayDiscovery{
-		IssuerURL: "http://localhost:8080/realms/tunnel",
-		ClientID:  "tunnel-agent",
+		IssuerURL: testIssuerURL,
+		ClientID:  testClientID,
 	})
 	defer server.Close()
 
 	cfg, err := loadConfig(context.Background(), server.Client(), []string{
-		"--relay-url", server.URL,
-		"--local-url", "http://127.0.0.1:3000",
+		flagRelayURL, server.URL,
+		flagLocalURL, "http://127.0.0.1:3000",
 		"--log-level", "debug",
 	})
 	if err != nil {
@@ -102,14 +109,14 @@ func TestLoadConfigLogLevelOverride(t *testing.T) {
 
 func TestLoadConfigJSONLogsOverride(t *testing.T) {
 	server := newDiscoveryServer(t, relayDiscovery{
-		IssuerURL: "http://localhost:8080/realms/tunnel",
-		ClientID:  "tunnel-agent",
+		IssuerURL: testIssuerURL,
+		ClientID:  testClientID,
 	})
 	defer server.Close()
 
 	cfg, err := loadConfig(context.Background(), server.Client(), []string{
-		"--relay-url", server.URL,
-		"--local-url", "http://127.0.0.1:3000",
+		flagRelayURL, server.URL,
+		flagLocalURL, "http://127.0.0.1:3000",
 		"--json-logs",
 	})
 	if err != nil {

@@ -11,6 +11,8 @@ import (
 	"github.com/lwj5/bridgertun/internal/wire"
 )
 
+const testRequestID = "req-2"
+
 func TestLocalProxyStream_TerminalBeforeHead(t *testing.T) {
 	s := proxy.NewStream("req-1", func() {})
 	ps := newLocalProxyStream(s)
@@ -35,12 +37,12 @@ func TestLocalProxyStream_TerminalBeforeHead(t *testing.T) {
 }
 
 func TestLocalProxyStream_HeadThenChunksThenEnd(t *testing.T) {
-	s := proxy.NewStream("req-2", func() {})
+	s := proxy.NewStream(testRequestID, func() {})
 	ps := newLocalProxyStream(s)
 
-	s.Deliver(&wire.Envelope{ID: "req-2", Type: wire.TypeResponseHead, Status: 200})
-	s.Deliver(&wire.Envelope{ID: "req-2", Type: wire.TypeResponseChunk, Body: []byte("hello")})
-	s.Deliver(&wire.Envelope{ID: "req-2", Type: wire.TypeResponseEnd, EOF: true})
+	s.Deliver(&wire.Envelope{ID: testRequestID, Type: wire.TypeResponseHead, Status: 200})
+	s.Deliver(&wire.Envelope{ID: testRequestID, Type: wire.TypeResponseChunk, Body: []byte("hello")})
+	s.Deliver(&wire.Envelope{ID: testRequestID, Type: wire.TypeResponseEnd, EOF: true})
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()

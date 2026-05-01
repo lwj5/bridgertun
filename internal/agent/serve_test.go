@@ -8,14 +8,20 @@ import (
 	"github.com/lwj5/bridgertun/internal/wire"
 )
 
+const (
+	testAgentToken  = "agent-token"
+	testRelayToken  = "relay-token"
+	testAccessToken = "token"
+)
+
 func TestVerifyAgentTokenUsesCaseInsensitiveHeaderLookup(t *testing.T) {
 	t.Parallel()
 
 	envelope := &wire.Envelope{Headers: map[string][]string{
-		"x-tunnel-agent-auth": {"agent-token"},
+		"x-tunnel-agent-auth": {testAgentToken},
 	}}
 
-	if !verifyAgentToken(envelope, "agent-token") {
+	if !verifyAgentToken(envelope, testAgentToken) {
 		t.Fatal("verifyAgentToken() = false, want true")
 	}
 }

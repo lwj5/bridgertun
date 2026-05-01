@@ -34,13 +34,13 @@ func TestShouldRefreshHonorsConfiguredSkew(t *testing.T) {
 	if !source.shouldRefresh(&oauth2.Token{}) {
 		t.Fatal("empty token should require refresh")
 	}
-	if source.shouldRefresh(&oauth2.Token{AccessToken: "token"}) {
+	if source.shouldRefresh(&oauth2.Token{AccessToken: testAccessToken}) {
 		t.Fatal("token without expiry should not require refresh")
 	}
-	if !source.shouldRefresh(&oauth2.Token{AccessToken: "token", Expiry: time.Now().Add(10 * time.Second)}) {
+	if !source.shouldRefresh(&oauth2.Token{AccessToken: testAccessToken, Expiry: time.Now().Add(10 * time.Second)}) {
 		t.Fatal("token within skew should require refresh")
 	}
-	if source.shouldRefresh(&oauth2.Token{AccessToken: "token", Expiry: time.Now().Add(2 * time.Minute)}) {
+	if source.shouldRefresh(&oauth2.Token{AccessToken: testAccessToken, Expiry: time.Now().Add(2 * time.Minute)}) {
 		t.Fatal("token outside skew should not require refresh")
 	}
 }
