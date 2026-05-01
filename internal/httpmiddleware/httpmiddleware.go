@@ -8,11 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-
 	"github.com/rs/zerolog/hlog"
 	"github.com/rs/zerolog/log"
 )
 
+// Register attaches the standard middleware stack to router.
 func Register(router chi.Router) {
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
