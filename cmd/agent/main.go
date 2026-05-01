@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	zlog "github.com/rs/zerolog/log"
+	"github.com/rs/zerolog/log"
 
 	"github.com/lwj5/bridgertun/internal/agent"
-	"github.com/lwj5/bridgertun/internal/log"
+	"github.com/lwj5/bridgertun/internal/logutil"
 )
 
 var randomFloat64 = rand.Float64
@@ -48,8 +48,8 @@ func main() {
 		_, _ = os.Stderr.WriteString("agent config: " + err.Error() + "\n")
 		os.Exit(2)
 	}
-	log.Init(cfg.LogLevel)
-	zlog.Info().
+	logutil.Init(cfg.LogLevel)
+	log.Info().
 		Str("relay", cfg.RelayWSURL).
 		Str("local", cfg.LocalServiceURL).
 		Msg("starting agent")
@@ -59,7 +59,7 @@ func main() {
 
 	authSource, err := newOIDCTokenSource(ctx, cfg)
 	if err != nil {
-		zlog.Fatal().Err(err).Msg("initialize oidc auth")
+		log.Fatal().Err(err).Msg("initialize oidc auth")
 	}
 
 	// Resume state is kept across reconnect attempts so the agent can ask the
@@ -73,12 +73,12 @@ func main() {
 		sessionDuration, err := runSession(ctx, cfg, state, authSource)
 		if err != nil {
 			if errors.Is(err, agent.ErrRelayAuthRejected) {
-				zlog.Warn().Err(err).Dur("session_dur", sessionDuration).Msg("session auth rejected; token invalidated")
+				log.Warn().Err(err).Dur("session_dur", sessionDuration).Msg("session auth rejected; token invalidated")
 			} else {
-				zlog.Warn().Err(err).Dur("session_dur", sessionDuration).Msg("session ended")
+				log.Warn().Err(err).Dur("session_dur", sessionDuration).Msg("session ended")
 			}
 		} else {
-			zlog.Info().Dur("session_dur", sessionDuration).Msg("session ended")
+			log.Info().Dur("session_dur", sessionDuration).Msg("session ended")
 		}
 
 		if ctx.Err() != nil {
@@ -90,14 +90,14 @@ func main() {
 		}
 		wait := backoff(attempt, cfg.ReconnectMaxBackoff)
 		attempt++
-		zlog.Info().Dur("wait", wait).Int("attempt", attempt).Msg("reconnecting")
+		log.Info().Dur("wait", wait).Int("attempt", attempt).Msg("reconnecting")
 
 		select {
 		case <-ctx.Done():
 		case <-time.After(wait):
 		}
 	}
-	zlog.Info().Msg("agent stopped")
+	log.Info().Msg("agent stopped")
 }
 
 // backoff returns min(2^attempt, maxWait) with ±25% jitter.

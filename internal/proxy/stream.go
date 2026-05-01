@@ -5,7 +5,8 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/lwj5/bridgertun/internal/log"
+	"github.com/rs/zerolog/log"
+
 	"github.com/lwj5/bridgertun/internal/wire"
 )
 
@@ -119,7 +120,7 @@ func (s *Stream) Fail(err error) {
 	case s.Chunks <- envelope:
 	case <-s.closed:
 	default:
-		log.L().Warn().Str("stream", s.ID).Err(err).Msg("fail: chunks buffer full, error envelope dropped")
+		log.Warn().Str("stream", s.ID).Err(err).Msg("fail: chunks buffer full, error envelope dropped")
 	}
 	s.sendMu.RUnlock()
 	s.Close()

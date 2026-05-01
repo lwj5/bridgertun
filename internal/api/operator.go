@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/httpjson"
-	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
 )
 
@@ -63,7 +63,7 @@ func (h *operatorHandler) listSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	sessions, err := h.registry.List(r.Context(), filter)
 	if err != nil {
-		log.L().Warn().Err(err).Msg("list sessions")
+		log.Warn().Err(err).Msg("list sessions")
 		http.Error(w, "registry error", http.StatusBadGateway)
 		return
 	}

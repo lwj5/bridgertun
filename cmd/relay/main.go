@@ -14,12 +14,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog/log"
 	"github.com/valkey-io/valkey-go"
 
 	"github.com/lwj5/bridgertun/internal/api"
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/httpmiddleware"
-	"github.com/lwj5/bridgertun/internal/log"
+	"github.com/lwj5/bridgertun/internal/logutil"
 	"github.com/lwj5/bridgertun/internal/registry"
 	wspkg "github.com/lwj5/bridgertun/internal/ws"
 )
@@ -30,15 +31,15 @@ func main() {
 		_, _ = os.Stderr.WriteString("relay config: " + err.Error() + "\n")
 		os.Exit(2)
 	}
-	log.Init(cfg.LogLevel)
-	log.L().Info().Str("node", cfg.NodeID).Msg("starting relay")
+	logutil.Init(cfg.LogLevel)
+	log.Info().Str("node", cfg.NodeID).Msg("starting relay")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	verifier, err := auth.NewVerifier(ctx, cfg.OIDCIssuerURL, cfg.OIDCAudience)
 	if err != nil {
-		log.L().Fatal().Err(err).Msg("oidc verifier")
+		log.Fatal().Err(err).Msg("oidc verifier")
 	}
 
 	valkeyOption := valkey.ClientOption{
@@ -51,7 +52,7 @@ func main() {
 	}
 	valkeyClient, err := valkey.NewClient(valkeyOption)
 	if err != nil {
-		log.L().Fatal().Err(err).Msg("valkey client")
+		log.Fatal().Err(err).Msg("valkey client")
 	}
 	defer valkeyClient.Close()
 
@@ -59,11 +60,11 @@ func main() {
 		ctx, valkeyClient, cfg.NodeID, cfg.ResumeGraceTTL,
 	)
 	if err != nil {
-		log.L().Fatal().Err(err).Msg("registry init")
+		log.Fatal().Err(err).Msg("registry init")
 	}
 	defer func() {
 		if err := sessionRegistry.Close(); err != nil {
-			log.L().Warn().Err(err).Msg("registry close")
+			log.Warn().Err(err).Msg("registry close")
 		}
 	}()
 
@@ -115,23 +116,23 @@ func main() {
 	go serve(&wg, apiServer, "api", cfg.TLSCertFile, cfg.TLSKeyFile)
 
 	<-ctx.Done()
-	log.L().Info().Msg("shutdown signal received")
+	log.Info().Msg("shutdown signal received")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownDrain)
 	defer cancel()
 	if err := webSocketServer.Shutdown(shutdownCtx); err != nil {
-		log.L().Warn().Err(err).Msg("ws server shutdown")
+		log.Warn().Err(err).Msg("ws server shutdown")
 	}
 	if err := apiServer.Shutdown(shutdownCtx); err != nil {
-		log.L().Warn().Err(err).Msg("api server shutdown")
+		log.Warn().Err(err).Msg("api server shutdown")
 	}
 	wg.Wait()
-	log.L().Info().Msg("relay stopped")
+	log.Info().Msg("relay stopped")
 }
 
 func serve(wg *sync.WaitGroup, server *http.Server, name, cert, key string) {
 	defer wg.Done()
-	log.L().Info().Str("server", name).Str("addr", server.Addr).Msg("listening")
+	log.Info().Str("server", name).Str("addr", server.Addr).Msg("listening")
 	var err error
 	if cert != "" && key != "" {
 		err = server.ListenAndServeTLS(cert, key)
@@ -139,6 +140,6 @@ func serve(wg *sync.WaitGroup, server *http.Server, name, cert, key string) {
 		err = server.ListenAndServe()
 	}
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.L().Error().Err(err).Str("server", name).Msg("server exited")
+		log.Error().Err(err).Str("server", name).Msg("server exited")
 	}
 }

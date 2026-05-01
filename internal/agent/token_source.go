@@ -12,9 +12,8 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+	"github.com/rs/zerolog/log"
 	"golang.org/x/oauth2"
-
-	"github.com/lwj5/bridgertun/internal/log"
 )
 
 const (
@@ -143,7 +142,7 @@ func (s *oidcTokenSource) ensureToken(ctx context.Context) (*oauth2.Token, error
 			s.setToken(fresh)
 			return fresh, nil
 		}
-		log.L().Warn().Err(err).Msg("refresh token failed, re-authenticating with device flow")
+		log.Warn().Err(err).Msg("refresh token failed, re-authenticating with device flow")
 	}
 
 	fresh, err := s.authorizeWithDeviceCode(ctx)
@@ -205,7 +204,7 @@ func (s *oidcTokenSource) authorizeWithDeviceCode(ctx context.Context) (*oauth2.
 	if deviceResponse.VerificationURIComplete != "" {
 		verificationURL = deviceResponse.VerificationURIComplete
 	}
-	log.L().Info().
+	log.Info().
 		Str("verification_url", verificationURL).
 		Str("user_code", deviceResponse.UserCode).
 		Msg("complete login in your browser")

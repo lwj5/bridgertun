@@ -1,4 +1,4 @@
-package log
+package logutil
 
 import (
 	"testing"
@@ -11,8 +11,5 @@ func TestInitDefaultsUnknownLevelToInfo(t *testing.T) {
 
 	if got := zerolog.GlobalLevel(); got != zerolog.InfoLevel {
 		t.Fatalf("zerolog.GlobalLevel() = %s, want %s", got, zerolog.InfoLevel)
-	}
-	if L() == nil {
-		t.Fatal("L() returned nil logger")
 	}
 }

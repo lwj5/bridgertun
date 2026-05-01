@@ -14,7 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lwj5/bridgertun/internal/log"
+	"github.com/rs/zerolog/log"
+
 	"github.com/lwj5/bridgertun/internal/wire"
 )
 
@@ -212,7 +213,7 @@ func trySend(ctx context.Context, ch chan<- *wire.Envelope, envelope *wire.Envel
 	case <-ctx.Done():
 		return false
 	case <-timer.C:
-		log.L().Warn().Str("id", envelope.ID).Str("type", envelope.Type).Msg("send buffer full; dropping frame")
+		log.Warn().Str("id", envelope.ID).Str("type", envelope.Type).Msg("send buffer full; dropping frame")
 		return false
 	}
 }

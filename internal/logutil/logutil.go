@@ -1,5 +1,5 @@
-// Package log configures and exposes the global zerolog logger.
-package log
+// Package logutil configures the global zerolog logger.
+package logutil
 
 import (
 	"os"
@@ -29,9 +29,4 @@ func Init(level string) {
 			log.Warn().Str("requested", level).Msg("unknown log level, defaulting to info")
 		}
 	})
-}
-
-// L returns the global zerolog logger.
-func L() *zerolog.Logger {
-	return &log.Logger
 }

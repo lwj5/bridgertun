@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 
-	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
 	"github.com/lwj5/bridgertun/internal/wire"
 )
@@ -116,7 +116,7 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ps, err := h.registry.Dispatch(dispatchCtx, sessionID, envelope)
 	if err != nil {
-		log.L().Warn().Err(err).Str("session", sessionID).Msg("dispatch")
+		log.Warn().Err(err).Str("session", sessionID).Msg("dispatch")
 		http.Error(w, "tunnel dispatch error", http.StatusBadGateway)
 		return
 	}
@@ -167,7 +167,7 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-idleTimer.C:
-			log.L().Warn().Str("session", sessionID).Msg("stream idle timeout")
+			log.Warn().Str("session", sessionID).Msg("stream idle timeout")
 			if !wroteHead {
 				http.Error(w, "upstream idle timeout", http.StatusGatewayTimeout)
 			}
@@ -184,7 +184,7 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					// block timeout — wait for next frame without resetting idle
 					continue
 				}
-				log.L().Warn().Err(res.err).Str("session", sessionID).Msg("stream receive")
+				log.Warn().Err(res.err).Str("session", sessionID).Msg("stream receive")
 				if !wroteHead {
 					http.Error(w, "upstream error", http.StatusBadGateway)
 				}
@@ -227,7 +227,7 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			case wire.TypeResponseEnd:
 				return
 			case wire.TypeError:
-				log.L().Warn().Str("session", sessionID).Str("err", env.Error).Msg("agent error")
+				log.Warn().Str("session", sessionID).Str("err", env.Error).Msg("agent error")
 				if !wroteHead {
 					http.Error(w, "agent error: "+env.Error, http.StatusBadGateway)
 				}

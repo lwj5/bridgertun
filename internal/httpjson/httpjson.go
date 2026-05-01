@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/lwj5/bridgertun/internal/log"
+	"github.com/rs/zerolog/log"
 )
 
 // Write encodes payload as JSON, sets the Content-Type header, and writes
@@ -15,6 +15,6 @@ func Write(w http.ResponseWriter, status int, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.L().Warn().Err(err).Msg("encode response")
+		log.Warn().Err(err).Msg("encode response")
 	}
 }

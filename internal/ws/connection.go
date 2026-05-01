@@ -10,9 +10,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/lwj5/bridgertun/internal/auth"
-	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/proxy"
 	"github.com/lwj5/bridgertun/internal/wire"
 )
@@ -130,7 +130,7 @@ func (c *Connection) sendCancel(requestID string) {
 	case c.sendCh <- envelope:
 	case <-c.done:
 	case <-timer.C:
-		log.L().Warn().Str("session", c.SessionID).Str("requestID", requestID).Msg("cancel dropped: send buffer full")
+		log.Warn().Str("session", c.SessionID).Str("requestID", requestID).Msg("cancel dropped: send buffer full")
 	}
 }
 
@@ -148,14 +148,14 @@ func (c *Connection) writePump(ctx context.Context, wg *sync.WaitGroup) {
 		case envelope := <-c.sendCh:
 			payload, err := wire.Encode(envelope)
 			if err != nil {
-				log.L().Error().Err(err).Str("session", c.SessionID).Msg("encode envelope")
+				log.Error().Err(err).Str("session", c.SessionID).Msg("encode envelope")
 				continue
 			}
 			writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			err = c.webSocketConn.Write(writeCtx, websocket.MessageBinary, payload)
 			cancel()
 			if err != nil {
-				log.L().Warn().Err(err).Str("session", c.SessionID).Msg("ws write")
+				log.Warn().Err(err).Str("session", c.SessionID).Msg("ws write")
 				return
 			}
 		case <-ticker.C:
@@ -163,7 +163,7 @@ func (c *Connection) writePump(ctx context.Context, wg *sync.WaitGroup) {
 			err := c.webSocketConn.Ping(pingCtx)
 			cancel()
 			if err != nil {
-				log.L().Warn().Err(err).Str("session", c.SessionID).Msg("ws ping failed")
+				log.Warn().Err(err).Str("session", c.SessionID).Msg("ws ping failed")
 				return
 			}
 		}
@@ -180,7 +180,7 @@ func (c *Connection) readPump(ctx context.Context, cancel context.CancelFunc, wg
 	for {
 		messageType, data, err := c.webSocketConn.Read(ctx)
 		if err != nil {
-			log.L().Info().Err(err).Str("session", c.SessionID).Msg("ws read closed")
+			log.Info().Err(err).Str("session", c.SessionID).Msg("ws read closed")
 			return
 		}
 		if messageType != websocket.MessageBinary {
@@ -188,7 +188,7 @@ func (c *Connection) readPump(ctx context.Context, cancel context.CancelFunc, wg
 		}
 		envelope, err := wire.Decode(data)
 		if err != nil {
-			log.L().Warn().Err(err).Str("session", c.SessionID).Msg("decode envelope")
+			log.Warn().Err(err).Str("session", c.SessionID).Msg("decode envelope")
 			continue
 		}
 		c.dispatch(envelope)
@@ -213,7 +213,7 @@ func (c *Connection) dispatch(envelope *wire.Envelope) {
 			c.streams.Remove(envelope.ID)
 		}
 	default:
-		log.L().Debug().Str("type", envelope.Type).Str("session", c.SessionID).Msg("unhandled envelope")
+		log.Debug().Str("type", envelope.Type).Str("session", c.SessionID).Msg("unhandled envelope")
 	}
 }
 
