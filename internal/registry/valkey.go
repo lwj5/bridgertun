@@ -176,17 +176,41 @@ func (r *ValkeyRegistry) Unregister(ctx context.Context, sessionID string) error
 	return nil
 }
 
+// LocalSenderFor returns the LocalSender currently registered for sessionID
+// on this node. Returns false if the session is not local.
+//
+//nolint:ireturn // Registry contract requires returning the LocalSender interface.
+func (r *ValkeyRegistry) LocalSenderFor(sessionID string) (LocalSender, bool) {
+	r.mu.RLock()
+	entry, ok := r.locals[sessionID]
+	r.mu.RUnlock()
+	if !ok {
+		return nil, false
+	}
+	return entry.sender, true
+}
+
 // Detach marks the session as disconnected and drops the local entry, but
 // leaves the Valkey record in place until the TTL expires. Lets the agent
 // reconnect (possibly on a different node) and resume with the same ID.
 //
+// sender must be the LocalSender passed to Register. If a newer connection
+// has already taken over the slot (same-node resume), the local entry is
+// left untouched and only the Valkey rewrite is skipped. This prevents the
+// evicted goroutine's deferred Detach from tearing down the replacement.
+//
 // The Valkey rewrite only happens if the current record still names this
 // node as the owner. If a resume on another node has already taken over,
 // we leave their record alone.
-func (r *ValkeyRegistry) Detach(ctx context.Context, sessionID string) error {
+func (r *ValkeyRegistry) Detach(ctx context.Context, sessionID string, sender LocalSender) error {
 	r.mu.Lock()
 	entry, ok := r.locals[sessionID]
 	if !ok {
+		r.mu.Unlock()
+		return nil
+	}
+	if entry.sender != sender {
+		// A newer connection already claimed this slot; leave it untouched.
 		r.mu.Unlock()
 		return nil
 	}

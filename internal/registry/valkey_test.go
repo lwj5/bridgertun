@@ -61,6 +61,84 @@ func TestValkeyRegistryHandleCtrlCloseClosesLocalSender(t *testing.T) {
 	}
 }
 
+// TestValkeyDetachWithStaleSender exercises the same-node resume race: if a
+// new connection has already claimed the local entry, Detach called with the
+// old sender must leave the new entry untouched.
+func TestValkeyDetachWithStaleSender(t *testing.T) {
+	t.Parallel()
+
+	oldSender := &stubLocalSender{}
+	newSender := &stubLocalSender{}
+
+	registry := &ValkeyRegistry{
+		locals: map[string]*localEntry{
+			"session-1": {sender: newSender},
+		},
+	}
+
+	// Detach called with the OLD sender must not delete the NEW entry.
+	if err := registry.Detach(context.Background(), "session-1", oldSender); err != nil {
+		t.Fatalf("Detach() error = %v", err)
+	}
+	if _, ok := registry.locals["session-1"]; !ok {
+		t.Fatal("Detach with stale sender deleted the new local entry")
+	}
+}
+
+// TestValkeyDetachWithMatchingSender verifies that Detach removes the local
+// entry and invokes the cancel func when the sender matches.
+// info is nil so Detach returns before touching the Valkey client.
+func TestValkeyDetachWithMatchingSender(t *testing.T) {
+	t.Parallel()
+
+	sender := &stubLocalSender{}
+	cancelCalled := false
+	registry := &ValkeyRegistry{
+		locals: map[string]*localEntry{
+			"session-1": {
+				sender: sender,
+				cancel: func() { cancelCalled = true },
+				info:   nil, // causes early return before any Valkey I/O
+			},
+		},
+	}
+
+	if err := registry.Detach(context.Background(), "session-1", sender); err != nil {
+		t.Fatalf("Detach() error = %v", err)
+	}
+	if _, ok := registry.locals["session-1"]; ok {
+		t.Fatal("Detach with matching sender did not remove local entry")
+	}
+	if !cancelCalled {
+		t.Fatal("Detach did not invoke the entry cancel func")
+	}
+}
+
+// TestValkeyLocalSenderFor verifies the helper returns the stored sender.
+func TestValkeyLocalSenderFor(t *testing.T) {
+	t.Parallel()
+
+	sender := &stubLocalSender{}
+	registry := &ValkeyRegistry{
+		locals: map[string]*localEntry{
+			"session-1": {sender: sender},
+		},
+	}
+
+	got, ok := registry.LocalSenderFor("session-1")
+	if !ok {
+		t.Fatal("LocalSenderFor returned false for a known local session")
+	}
+	if got != sender {
+		t.Fatal("LocalSenderFor returned the wrong sender")
+	}
+
+	_, ok = registry.LocalSenderFor("unknown")
+	if ok {
+		t.Fatal("LocalSenderFor returned true for unknown session")
+	}
+}
+
 func TestValkeyKeyHelpers(t *testing.T) {
 	t.Parallel()
 

@@ -4,6 +4,8 @@ package httpmiddleware
 
 import (
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -23,11 +25,44 @@ func Register(router chi.Router) {
 	router.Use(hlog.AccessHandler(func(r *http.Request, status, size int, duration time.Duration) {
 		hlog.FromRequest(r).Info().
 			Str("method", r.Method).
-			Stringer("url", r.URL).
+			Str("url", sanitizeURL(r.URL)).
 			Int("status", status).
 			Int("size", size).
 			Dur("duration", duration).
 			Send()
 	}))
 	router.Use(middleware.Recoverer)
+}
+
+// sanitizeURL returns the URL as a string with bearer-credential query
+// parameters removed so they never appear in access logs. Any key whose
+// lower-case form starts with "tunnel_" (e.g. tunnel_secret) or equals
+// "agent_secret" is stripped before logging.
+func sanitizeURL(u *url.URL) string {
+	if u.RawQuery == "" {
+		return u.String()
+	}
+	values, err := url.ParseQuery(u.RawQuery)
+	if err != nil {
+		// Unparseable query: redact entirely rather than risk logging raw credentials.
+		clone := *u
+		clone.RawQuery = "redacted"
+		return clone.String()
+	}
+	redacted := false
+	for key := range values {
+		lower := strings.ToLower(key)
+		if strings.HasPrefix(lower, "tunnel_") || lower == "agent_secret" {
+			values[key] = []string{"***"}
+			redacted = true
+		}
+	}
+	if !redacted {
+		return u.String()
+	}
+	clone := *u
+	// values.Encode() percent-encodes '*' as '%2A'; restore the literal '***'
+	// so the placeholder is human-readable in logs.
+	clone.RawQuery = strings.ReplaceAll(values.Encode(), "%2A%2A%2A", "***")
+	return clone.String()
 }
