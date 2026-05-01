@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/valkey-io/valkey-go"
 
 	"github.com/lwj5/bridgertun/internal/auth"
+	"github.com/lwj5/bridgertun/internal/httpmiddleware"
 	"github.com/lwj5/bridgertun/internal/registry"
 )
 
@@ -24,34 +26,39 @@ type Config struct {
 // routes, and health checks.
 func NewRouter(cfg Config, registry registry.Registry, verifier *auth.Verifier, rdb valkey.Client) http.Handler {
 	r := chi.NewRouter()
+	httpmiddleware.Register(r)
 
 	proxyHandler := newProxyHandler(cfg, registry)
 	operatorHandler := newOperatorHandler(registry, verifier)
 
-	// Proxy routes — per-session auth middleware runs inside proxyH.ServeHTTP.
+	// Proxy routes — streaming responses, so no request timeout. Per-session
+	// auth middleware runs inside proxyHandler.ServeHTTP.
 	r.Handle("/v1/tunnel/{sessionID}/*", proxyHandler)
 	r.Handle("/v1/tunnel/{sessionID}", proxyHandler)
 
-	// Operator routes — OIDC scope auth.
-	r.Route("/v1/sessions", func(r chi.Router) {
-		r.Use(operatorHandler.requireOperator)
-		r.Get("/", operatorHandler.listSessions)
-		r.Get("/{sessionID}", operatorHandler.getSession)
-		r.Delete("/{sessionID}", operatorHandler.deleteSession)
-	})
+	// Operator and health routes — bounded request lifetime.
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Timeout(60 * time.Second))
 
-	// Health.
-	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		if err := rdb.Do(ctx, rdb.B().Ping().Build()).Error(); err != nil {
-			http.Error(w, "valkey down", http.StatusServiceUnavailable)
-			return
-		}
-		w.WriteHeader(http.StatusOK)
+		r.Route("/v1/sessions", func(r chi.Router) {
+			r.Use(operatorHandler.requireOperator)
+			r.Get("/", operatorHandler.listSessions)
+			r.Get("/{sessionID}", operatorHandler.getSession)
+			r.Delete("/{sessionID}", operatorHandler.deleteSession)
+		})
+
+		r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})
+		r.Get("/readyz", func(w http.ResponseWriter, r *http.Request) {
+			ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+			defer cancel()
+			if err := rdb.Do(ctx, rdb.B().Ping().Build()).Error(); err != nil {
+				http.Error(w, "valkey down", http.StatusServiceUnavailable)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		})
 	})
 
 	return r

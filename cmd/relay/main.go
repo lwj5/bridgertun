@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/valkey-io/valkey-go"
 
 	"github.com/lwj5/bridgertun/internal/api"
 	"github.com/lwj5/bridgertun/internal/auth"
+	"github.com/lwj5/bridgertun/internal/httpmiddleware"
 	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
 	wspkg "github.com/lwj5/bridgertun/internal/ws"
@@ -67,6 +69,7 @@ func main() {
 
 	// WS listener
 	webSocketMux := chi.NewRouter()
+	httpmiddleware.Register(webSocketMux)
 	webSocketHandler := wspkg.NewHandler(wspkg.HandlerConfig{
 		AllowedOrigins:    cfg.AllowedOrigins,
 		PingInterval:      cfg.WSPingInterval,
@@ -75,9 +78,13 @@ func main() {
 		OIDCIssuerURL:     cfg.OIDCIssuerURL,
 		OIDCAgentClientID: cfg.OIDCAgentClientID,
 	}, verifier, sessionRegistry, cfg.PublicBaseURL)
-	webSocketMux.Get("/v1/agent/config", webSocketHandler.ServeAgentConfig)
 	webSocketMux.Handle("/v1/agent/connect", webSocketHandler)
-	webSocketMux.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+
+	webSocketMux.Group(func(r chi.Router) {
+		r.Use(middleware.Timeout(10 * time.Second))
+		r.Get("/v1/agent/config", webSocketHandler.ServeAgentConfig)
+		r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	})
 
 	webSocketServer := &http.Server{
 		Addr:              cfg.WSAddr,
