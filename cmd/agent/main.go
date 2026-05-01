@@ -14,25 +14,23 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/lwj5/bridgertun/internal/agent"
+	"github.com/lwj5/bridgertun/internal/banner"
 	"github.com/lwj5/bridgertun/internal/logutil"
 )
 
 var randomFloat64 = rand.Float64
 
-const startupBanner = `
- ____       _     _                 _
-| __ ) _ __(_) __| | __ _  ___ _ __| |_ _   _ _ __
-|  _ \\| '__| |/ _  |/ _  |/ _ \\ '__| __| | | | '_ \\
-| |_) | |  | | (_| | (_| |  __/ |  | |_| |_| | | | |
-|____/|_|  |_|\\__,_|\\__, |\\___|_|   \\__|\\__,_|_| |_|
-					 |___/
+const startupBanner = banner.Banner + `
+      .o.                                            .   
+     .888.                                         .o8   
+    .8"888.      .oooooooo  .ooooo.  ooo. .oo.   .o888oo 
+   .8' '888.    888' '88b  d88' '88b '888P"Y88b    888   
+  .88ooo8888.   888   888  888ooo888  888   888    888   
+ .8'     '888.  '88bod8P'  888    .o  888   888    888 . 
+o88o     o8888o '8oooooo.  'Y8bod8P' o888o o888o   "888" 
+                d"     YD                                
+                "Y88888P'                                
 
-	_                    _
-   / \\   __ _  ___ _ __ | |_
-  / _ \\ / _  |/ _ \\ '_ \\| __|
- / ___ \\ (_| |  __/ | | | |_
-/_/   \\_\\__, |\\___|_| |_|\\__|
-		  |___/
 `
 
 func newOIDCTokenSource(ctx context.Context, cfg *agentConfig) (agent.TokenSource, error) { //nolint:ireturn
