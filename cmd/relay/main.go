@@ -14,12 +14,13 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/rs/zerolog/log"
 	"github.com/valkey-io/valkey-go"
 
 	"github.com/lwj5/bridgertun/internal/api"
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/httpmiddleware"
-	"github.com/lwj5/bridgertun/internal/log"
+	"github.com/lwj5/bridgertun/internal/logutil"
 	"github.com/lwj5/bridgertun/internal/registry"
 	wspkg "github.com/lwj5/bridgertun/internal/ws"
 )
