@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -19,11 +20,25 @@ import (
 
 	"github.com/lwj5/bridgertun/internal/api"
 	"github.com/lwj5/bridgertun/internal/auth"
+	"github.com/lwj5/bridgertun/internal/banner"
 	"github.com/lwj5/bridgertun/internal/httpmiddleware"
 	"github.com/lwj5/bridgertun/internal/logutil"
 	"github.com/lwj5/bridgertun/internal/registry"
 	wspkg "github.com/lwj5/bridgertun/internal/ws"
 )
+
+const startupBanner = banner.Banner + `
+ooooooooo.             oooo                        
+'888   'Y88.           '888                        
+ 888   .d88'  .ooooo.   888   .oooo.   oooo    ooo 
+ 888ooo88P'  d88' '88b  888  'P  )88b   '88.  .8'  
+ 888'88b.    888ooo888  888   .oP"888    '88..8'   
+ 888  '88b.  888    .o  888  d8(  888     '888'    
+o888o  o888o 'Y8bod8P' o888o 'Y888""8o     .8'     
+                                       .o..P'      
+                                       'Y8P'       
+
+`
 
 func main() {
 	cfg, err := loadConfig()
@@ -32,6 +47,9 @@ func main() {
 		os.Exit(2)
 	}
 	logutil.Init(cfg.LogLevel)
+
+	_, _ = fmt.Fprint(os.Stdout, startupBanner)
+
 	log.Info().Str("node", cfg.NodeID).Msg("starting relay")
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
