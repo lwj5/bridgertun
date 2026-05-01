@@ -78,7 +78,7 @@ func main() {
 		StreamIdleTimeout: cfg.StreamIdleTimeout,
 		OIDCIssuerURL:     cfg.OIDCIssuerURL,
 		OIDCAgentClientID: cfg.OIDCAgentClientID,
-	}, verifier, sessionRegistry, cfg.PublicBaseURL)
+	}, verifier, sessionRegistry, cfg.RelayBaseURL)
 	webSocketMux.Handle("/v1/agent/connect", webSocketHandler)
 
 	webSocketMux.Group(func(r chi.Router) {
@@ -96,11 +96,12 @@ func main() {
 		IdleTimeout:       0,
 	}
 
-	// Public API listener
+	// Relay API listener
 	apiServer := &http.Server{
 		Addr: cfg.APIAddr,
 		Handler: api.NewRouter(api.Config{
 			MaxRequestBodyBytes: cfg.MaxRequestBodyBytes,
+			ProxyRequestTimeout: cfg.ProxyRequestTimeout,
 			TrustedProxies:      cfg.TrustedProxies,
 			StreamIdleTimeout:   cfg.StreamIdleTimeout,
 		}, sessionRegistry, verifier, valkeyClient),

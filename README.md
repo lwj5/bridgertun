@@ -48,12 +48,12 @@ export OIDC_ISSUER_URL=http://localhost:8080/realms/tunnel
 export OIDC_AUDIENCE=relay
 export OIDC_AGENT_CLIENT_ID=agent
 export VALKEY_ADDR=localhost:6379
-export RELAY_PUBLIC_URL=http://localhost:9000
+export RELAY_URL=http://localhost:9000
 
 make run
 ```
 
-The relay starts on `:8443` (agent WebSocket) and `:9000` (public API).
+The relay starts on `:8443` (agent WebSocket) and `:9000` (relay API).
 
 ## Agent connection
 
@@ -356,13 +356,12 @@ All settings are environment variables:
 | ------------------------ | ----------------- | --------------------------------------------------------------------- |
 | `RELAY_WS_ADDR`          | `:8443`           | Agent WebSocket listener                                              |
 | `RELAY_API_ADDR`         | `:9000`           | Proxy + operator API listener                                         |
-| `RELAY_PUBLIC_URL`       | **required**      | Override the `tunnel_url` base (e.g. `https://relay.example.com`)     |
+| `RELAY_URL`              | **required**      | Override the `tunnel_url` base (e.g. `https://relay.example.com`)     |
 | `RELAY_ALLOWED_ORIGINS`  | —                 | Comma-separated Origin patterns accepted for agent WebSocket upgrades |
 | `RELAY_NODE_ID`          | hostname          | Unique ID for this instance in the Valkey registry                    |
 | `OIDC_ISSUER_URL`        | **required**      | OIDC provider issuer URL (discovery endpoint)                         |
 | `OIDC_AUDIENCE`          | **required**      | Expected `aud` claim in agent JWTs                                    |
 | `OIDC_AGENT_CLIENT_ID`   | **required**      | Client ID served to agents via `GET /v1/agent/config`                 |
-| `OIDC_JWKS_REFRESH`      | `10m`             | JWKS key cache refresh interval                                       |
 | `VALKEY_ADDR`            | **required**      | `host:port` of Valkey instance                                        |
 | `VALKEY_PASSWORD`        | —                 | Valkey password                                                       |
 | `VALKEY_DB`              | `0`               | Valkey logical database index                                         |

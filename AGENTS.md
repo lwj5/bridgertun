@@ -17,7 +17,7 @@ Use this file to understand how to work on the relay, agent compatibility contra
 ## Repository layout
 - `cmd/relay` — relay server entrypoint
 - `cmd/agent` — reference Go agent implementation that connects to the relay
-- `internal/api` — public operator API, proxy handling, and HTTP server logic
+- `internal/api` — operator API, proxy handling, and HTTP server logic
 - `internal/ws` — agent WebSocket connect logic and tunnel auth
 - `internal/registry` — session registry and Valkey stream integration
 - `internal/proxy` — request/response streaming and tunnel forwarding

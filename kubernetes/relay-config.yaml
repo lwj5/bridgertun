@@ -8,6 +8,6 @@ data:
   OIDC_AGENT_CLIENT_ID: bridgertun-agent
   VALKEY_ADDR: valkey:6379
   VALKEY_TLS: "false"
-  RELAY_PUBLIC_URL: https://your-relay-domain
+  RELAY_URL: https://your-relay-domain
   RELAY_ALLOWED_ORIGINS: ""
   LOG_LEVEL: info

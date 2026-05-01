@@ -47,14 +47,14 @@ type Handler struct {
 	baseURL  string
 }
 
-// NewHandler returns a Handler wired to the given config, verifier, registry, and public base URL.
+// NewHandler returns a Handler wired to the given config, verifier, registry, and relay base URL.
 func NewHandler(
 	config HandlerConfig,
 	verifier *auth.Verifier,
 	registry registry.Registry,
-	publicBaseURL string,
+	relayBaseURL string,
 ) *Handler {
-	return &Handler{config: config, verifier: verifier, registry: registry, baseURL: publicBaseURL}
+	return &Handler{config: config, verifier: verifier, registry: registry, baseURL: relayBaseURL}
 }
 
 type agentDiscoveryResponse struct {
@@ -147,7 +147,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Send hello so the agent learns its sessionID + public URL. If this
+	// Send hello so the agent learns its sessionID + relay URL. If this
 	// fails the session is unusable; tear down so we don't leave a zombie
 	// registered.
 	hello := &wire.Envelope{

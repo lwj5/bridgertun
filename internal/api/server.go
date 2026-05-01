@@ -18,6 +18,7 @@ import (
 // Config holds the API server's runtime parameters.
 type Config struct {
 	MaxRequestBodyBytes int64
+	ProxyRequestTimeout time.Duration
 	TrustedProxies      []*net.IPNet
 	StreamIdleTimeout   time.Duration
 }
