@@ -171,11 +171,9 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case <-r.Context().Done():
 			return
 		case <-requestTimeout.C:
-			if awaitingFirstFrame {
-				sessionLogger.Warn().Dur("wait", h.cfg.ProxyRequestTimeout).Msg("upstream response timeout")
-				http.Error(w, "upstream response timeout", http.StatusGatewayTimeout)
-				return
-			}
+			sessionLogger.Warn().Dur("wait", h.cfg.ProxyRequestTimeout).Msg("upstream response timeout")
+			http.Error(w, "upstream response timeout", http.StatusGatewayTimeout)
+			return
 		case <-idleTimer.C:
 			sessionLogger.Warn().Msg("stream idle timeout")
 			if !wroteHead {

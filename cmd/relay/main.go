@@ -124,7 +124,7 @@ func main() {
 			StreamIdleTimeout:   cfg.StreamIdleTimeout,
 		}, sessionRegistry, verifier, valkeyClient),
 		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       0,
+		ReadTimeout:       cfg.ProxyRequestTimeout,
 		WriteTimeout:      0,
 		IdleTimeout:       120 * time.Second,
 	}
