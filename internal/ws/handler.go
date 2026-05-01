@@ -2,7 +2,6 @@ package ws
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/lwj5/bridgertun/internal/auth"
+	"github.com/lwj5/bridgertun/internal/httpjson"
 	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
 	"github.com/lwj5/bridgertun/internal/wire"
@@ -57,7 +57,7 @@ func NewHandler(
 	return &Handler{config: config, verifier: verifier, registry: registry, baseURL: publicBaseURL}
 }
 
-type agentConfigResponse struct {
+type agentDiscoveryResponse struct {
 	IssuerURL string `json:"issuer_url"`
 	ClientID  string `json:"client_id"`
 }
@@ -65,14 +65,11 @@ type agentConfigResponse struct {
 // ServeAgentConfig handles GET /v1/agent/config. No auth required — returns
 // the OIDC issuer and client ID the agent needs to acquire a token.
 func (h *Handler) ServeAgentConfig(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	if err := json.NewEncoder(w).Encode(agentConfigResponse{
+	w.Header().Set("Cache-Control", "no-store")
+	httpjson.Write(w, http.StatusOK, agentDiscoveryResponse{
 		IssuerURL: h.config.OIDCIssuerURL,
 		ClientID:  h.config.OIDCAgentClientID,
-	}); err != nil {
-		log.L().Warn().Err(err).Msg("encode agent config response")
-	}
+	})
 }
 
 // ServeHTTP handles GET /v1/agent/connect. The agent must present a valid

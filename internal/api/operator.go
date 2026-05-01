@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/lwj5/bridgertun/internal/auth"
+	"github.com/lwj5/bridgertun/internal/httpjson"
 	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
 )
@@ -78,7 +78,7 @@ func (h *operatorHandler) listSessions(w http.ResponseWriter, r *http.Request) {
 		entry.TunnelAuthHash = ""
 		redacted = append(redacted, entry)
 	}
-	writeJSON(w, http.StatusOK, redacted)
+	httpjson.Write(w, http.StatusOK, redacted)
 }
 
 func (h *operatorHandler) getSession(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +94,7 @@ func (h *operatorHandler) getSession(w http.ResponseWriter, r *http.Request) {
 	}
 	redacted := *info
 	redacted.TunnelAuthHash = ""
-	writeJSON(w, http.StatusOK, redacted)
+	httpjson.Write(w, http.StatusOK, redacted)
 }
 
 func (h *operatorHandler) deleteSession(w http.ResponseWriter, r *http.Request) {
@@ -108,12 +108,4 @@ func (h *operatorHandler) deleteSession(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		log.L().Warn().Err(err).Msg("encode response")
-	}
 }
