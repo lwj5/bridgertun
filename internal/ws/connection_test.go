@@ -17,13 +17,13 @@ func TestConnectionDispatchRoutesTerminalEnvelopeAndRemovesStream(t *testing.T) 
 		t.Fatalf("OpenStream() error = %v", err)
 	}
 
-	connection.dispatch(&wire.Envelope{ID: stream.ID, Type: wire.TypeResponseHead, Status: 204})
+	connection.dispatch(context.Background(), &wire.Envelope{ID: stream.ID, Type: wire.TypeResponseHead, Status: 204})
 	head := <-stream.HeadCh()
 	if head == nil || head.Status != 204 {
 		t.Fatalf("head = %+v, want status 204", head)
 	}
 
-	connection.dispatch(&wire.Envelope{ID: stream.ID, Type: wire.TypeResponseEnd, EOF: true})
+	connection.dispatch(context.Background(), &wire.Envelope{ID: stream.ID, Type: wire.TypeResponseEnd, EOF: true})
 	end := <-stream.ChunksCh()
 	if end == nil || end.Type != wire.TypeResponseEnd {
 		t.Fatalf("end = %+v, want response_end", end)

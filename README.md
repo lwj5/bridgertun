@@ -48,6 +48,7 @@ export OIDC_ISSUER_URL=http://localhost:8080/realms/tunnel
 export OIDC_AUDIENCE=relay
 export OIDC_AGENT_CLIENT_ID=agent
 export VALKEY_ADDR=localhost:6379
+export RELAY_PUBLIC_URL=http://localhost:9000
 
 make run
 ```
@@ -140,10 +141,14 @@ tokens are kept in memory and refreshed automatically.
 On connect the agent prints the session block to stdout:
 
 ```
-session: 550e8400-e29b-41d4-a716-446655440000
-tunnel : http://localhost:9000/v1/tunnel/550e8400-.../
-relay  : <relay_token>
-agent  : <agent_token>
+session      : 550e8400-e29b-41d4-a716-446655440000
+tunnel       : http://localhost:9000/v1/tunnel/550e8400-.../
+relay token  : <relay_token>
+agent token  : <agent_token>
+example url  : http://localhost:9000/v1/tunnel/550e8400-.../?agent_secret=<agent_token>&tunnel_secret=<relay_token>
+example headers:
+  X-Tunnel-Auth: <relay_token>
+  X-Tunnel-Agent-Auth: <agent_token>
 ```
 
 Hand `relay` and `agent` to whoever is calling (see [Calling through a
@@ -151,14 +156,16 @@ tunnel](#calling-through-a-tunnel)).
 
 ### Agent configuration
 
-The agent is configured via CLI flags. OIDC issuer URL and client ID are
+The agent is configured via CLI flags, and the same values may also be
+provided via environment variables. OIDC issuer URL and client ID are
 fetched automatically from the relay at startup (`GET /v1/agent/config`).
 
-| Flag                | Default      | Description                                      |
-| ------------------- | ------------ | ------------------------------------------------ |
-| `-r`, `--relay-url` | **required** | Relay base URL, e.g. `https://relay.example.com` |
-| `-l`, `--local-url` | **required** | Base URL of the local HTTP service to expose     |
-| `-v`, `--log-level` | `info`       | zerolog level (`debug`, `info`, `warn`, `error`) |
+| Flag                | Env var     | Default      | Description                                          |
+| ------------------- | ----------- | ------------ | ---------------------------------------------------- |
+| `-r`, `--relay-url` | `RELAY_URL` | **required** | Relay base URL, e.g. `https://relay.example.com`     |
+| `-l`, `--local-url` | `LOCAL_URL` | **required** | Base URL of the local HTTP service to expose         |
+| `--json-logs`       | `JSON_LOGS` | `false`      | Emit JSON logs instead of the default console output |
+| `-v`, `--log-level` | `LOG_LEVEL` | `info`       | zerolog level (`debug`, `info`, `warn`, `error`)     |
 
 ## Agent compatibility contract
 
@@ -345,30 +352,33 @@ Requires an OIDC token with the `relay:operator` scope.
 
 All settings are environment variables:
 
-| Variable                 | Default           | Description                                                       |
-| ------------------------ | ----------------- | ----------------------------------------------------------------- |
-| `RELAY_WS_ADDR`          | `:8443`           | Agent WebSocket listener                                          |
-| `RELAY_API_ADDR`         | `:9000`           | Proxy + operator API listener                                     |
-| `RELAY_PUBLIC_URL`       | —                 | Override the `tunnel_url` base (e.g. `https://relay.example.com`) |
-| `RELAY_NODE_ID`          | hostname          | Unique ID for this instance in the Valkey registry                |
-| `OIDC_ISSUER_URL`        | **required**      | OIDC provider issuer URL (discovery endpoint)                     |
-| `OIDC_AUDIENCE`          | **required**      | Expected `aud` claim in agent JWTs                                |
-| `OIDC_AGENT_CLIENT_ID`   | **required**      | Client ID served to agents via `GET /v1/agent/config`             |
-| `OIDC_JWKS_REFRESH`      | `10m`             | JWKS key cache refresh interval                                   |
-| `VALKEY_ADDR`            | **required**      | `host:port` of Valkey instance                                    |
-| `VALKEY_PASSWORD`        | —                 | Valkey password                                                   |
-| `VALKEY_DB`              | `0`               | Valkey logical database index                                     |
-| `VALKEY_TLS`             | `false`           | Connect to Valkey over TLS                                        |
-| `TRUSTED_PROXIES`        | —                 | Comma-separated CIDRs/IPs whose `X-Forwarded-For` is honored      |
-| `WS_PING_INTERVAL`       | `30s`             | How often the relay pings each agent                              |
-| `WS_PONG_TIMEOUT`        | `10s`             | Max wait for a pong before closing                                |
-| `PROXY_REQUEST_TIMEOUT`  | `30s`             | Per-request idle timeout (non-streaming)                          |
-| `STREAM_IDLE_TIMEOUT`    | `60s`             | Max silence between chunks on a streaming response                |
-| `SHUTDOWN_DRAIN`         | `15s`             | Time to drain in-flight requests on SIGTERM                       |
-| `MAX_REQUEST_BODY_BYTES` | `8388608` (8 MiB) | Maximum request body the relay buffers                            |
-| `TLS_CERT_FILE`          | —                 | TLS certificate (both listeners); omit for plain HTTP             |
-| `TLS_KEY_FILE`           | —                 | TLS private key                                                   |
-| `LOG_LEVEL`              | `info`            | zerolog level (`debug`, `info`, `warn`, `error`)                  |
+| Variable                 | Default           | Description                                                           |
+| ------------------------ | ----------------- | --------------------------------------------------------------------- |
+| `RELAY_WS_ADDR`          | `:8443`           | Agent WebSocket listener                                              |
+| `RELAY_API_ADDR`         | `:9000`           | Proxy + operator API listener                                         |
+| `RELAY_PUBLIC_URL`       | **required**      | Override the `tunnel_url` base (e.g. `https://relay.example.com`)     |
+| `RELAY_ALLOWED_ORIGINS`  | —                 | Comma-separated Origin patterns accepted for agent WebSocket upgrades |
+| `RELAY_NODE_ID`          | hostname          | Unique ID for this instance in the Valkey registry                    |
+| `OIDC_ISSUER_URL`        | **required**      | OIDC provider issuer URL (discovery endpoint)                         |
+| `OIDC_AUDIENCE`          | **required**      | Expected `aud` claim in agent JWTs                                    |
+| `OIDC_AGENT_CLIENT_ID`   | **required**      | Client ID served to agents via `GET /v1/agent/config`                 |
+| `OIDC_JWKS_REFRESH`      | `10m`             | JWKS key cache refresh interval                                       |
+| `VALKEY_ADDR`            | **required**      | `host:port` of Valkey instance                                        |
+| `VALKEY_PASSWORD`        | —                 | Valkey password                                                       |
+| `VALKEY_DB`              | `0`               | Valkey logical database index                                         |
+| `VALKEY_TLS`             | `false`           | Connect to Valkey over TLS                                            |
+| `TRUSTED_PROXIES`        | —                 | Comma-separated CIDRs/IPs whose `X-Forwarded-For` is honored          |
+| `RELAY_ALLOWED_ORIGINS`  | —                 | Comma-separated Origin patterns accepted for agent WebSocket upgrades |
+| `WS_PING_INTERVAL`       | `30s`             | How often the relay pings each agent                                  |
+| `WS_PONG_TIMEOUT`        | `10s`             | Max wait for a pong before closing                                    |
+| `PROXY_REQUEST_TIMEOUT`  | `30s`             | Per-request idle timeout (non-streaming)                              |
+| `RESUME_GRACE_TTL`       | `5m`              | How long a detached session is allowed to resume with the same ID     |
+| `STREAM_IDLE_TIMEOUT`    | `60s`             | Max silence between chunks on a streaming response                    |
+| `SHUTDOWN_DRAIN`         | `15s`             | Time to drain in-flight requests on SIGTERM                           |
+| `MAX_REQUEST_BODY_BYTES` | `8388608` (8 MiB) | Maximum request body the relay buffers                                |
+| `TLS_CERT_FILE`          | —                 | TLS certificate (both listeners); omit for plain HTTP                 |
+| `TLS_KEY_FILE`           | —                 | TLS private key                                                       |
+| `LOG_LEVEL`              | `info`            | zerolog level (`debug`, `info`, `warn`, `error`)                      |
 
 ## Multi-node
 

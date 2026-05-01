@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/rs/zerolog/log"
 
-	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/wire"
 )
 
@@ -112,7 +112,7 @@ func RunSession(ctx context.Context, cfg SessionConfig, state *ResumeState, auth
 		// corresponds to the new session. The relay already associated the
 		// current RelayTokenHash with hello.ID server-side.
 		if state.sessionID != "" {
-			log.L().Info().
+			log.Info().
 				Str("prev_session", state.sessionID).
 				Str("new_session", hello.ID).
 				Msg("resume declined; new session issued")
@@ -120,7 +120,7 @@ func RunSession(ctx context.Context, cfg SessionConfig, state *ResumeState, auth
 		state.sessionID = hello.ID
 		printOperatorBlock(hello.ID, hello.TunnelURL, tokens)
 	}
-	log.L().Info().
+	log.Info().
 		Str("session", hello.ID).
 		Str("tunnel_url", hello.TunnelURL).
 		Bool("resumed", resumed).
@@ -188,9 +188,9 @@ func RunSession(ctx context.Context, cfg SessionConfig, state *ResumeState, auth
 		case wire.TypeRequestCancel:
 			cancelInflight(envelope.ID)
 		case wire.TypeHello:
-			log.L().Warn().Str("id", envelope.ID).Msg("unexpected hello mid-session")
+			log.Warn().Str("id", envelope.ID).Msg("unexpected hello mid-session")
 		default:
-			log.L().Debug().Str("type", envelope.Type).Msg("unhandled envelope")
+			log.Debug().Str("type", envelope.Type).Msg("unhandled envelope")
 		}
 	}
 
@@ -241,14 +241,14 @@ func writerLoop(ctx context.Context, webSocketConn *websocket.Conn, ch <-chan *w
 			}
 			frame, err := wire.Encode(envelope)
 			if err != nil {
-				log.L().Error().Err(err).Str("id", envelope.ID).Msg("encode envelope")
+				log.Error().Err(err).Str("id", envelope.ID).Msg("encode envelope")
 				continue
 			}
 			writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			err = webSocketConn.Write(writeCtx, websocket.MessageBinary, frame)
 			cancel()
 			if err != nil {
-				log.L().Warn().Err(err).Str("id", envelope.ID).Msg("ws write")
+				log.Warn().Err(err).Str("id", envelope.ID).Msg("ws write")
 				return
 			}
 		}

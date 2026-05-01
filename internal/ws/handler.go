@@ -10,10 +10,10 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/httpjson"
-	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
 	"github.com/lwj5/bridgertun/internal/wire"
 )
@@ -64,9 +64,9 @@ type agentDiscoveryResponse struct {
 
 // ServeAgentConfig handles GET /v1/agent/config. No auth required — returns
 // the OIDC issuer and client ID the agent needs to acquire a token.
-func (h *Handler) ServeAgentConfig(w http.ResponseWriter, _ *http.Request) {
+func (h *Handler) ServeAgentConfig(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store")
-	httpjson.Write(w, http.StatusOK, agentDiscoveryResponse{
+	httpjson.Write(r.Context(), w, http.StatusOK, agentDiscoveryResponse{
 		IssuerURL: h.config.OIDCIssuerURL,
 		ClientID:  h.config.OIDCAgentClientID,
 	})
@@ -75,6 +75,7 @@ func (h *Handler) ServeAgentConfig(w http.ResponseWriter, _ *http.Request) {
 // ServeHTTP handles GET /v1/agent/connect. The agent must present a valid
 // OIDC JWT via the Authorization header.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	requestLogger := log.Ctx(r.Context())
 	rawAuthorization := r.Header.Get("Authorization")
 	if rawAuthorization == "" {
 		http.Error(w, "missing bearer token", http.StatusUnauthorized)
@@ -85,7 +86,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	principal, err := h.verifier.Verify(verifyCtx, rawAuthorization)
 	verifyCancel()
 	if err != nil {
-		log.L().Warn().Err(err).Msg("jwt verify")
+		requestLogger.Warn().Err(err).Msg("jwt verify")
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -114,14 +115,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, resumeErr.message, resumeErr.status)
 			return
 		}
-		log.L().Error().Err(err).Msg("resolve session id")
+		requestLogger.Error().Err(err).Msg("resolve session id")
 		http.Error(w, "resume lookup failed", http.StatusServiceUnavailable)
 		return
 	}
+	sessionLogger := requestLogger.With().Str("session", sessionID).Logger()
 
 	webSocketConn, err := websocket.Accept(w, r, acceptOptions)
 	if err != nil {
-		log.L().Warn().Err(err).Msg("ws accept")
+		requestLogger.Warn().Err(err).Msg("ws accept")
 		return
 	}
 
@@ -140,7 +142,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		TunnelAuthHash: tunnelAuth,
 	}
 	if err := h.registry.Register(r.Context(), sessionInfo, conn); err != nil {
-		log.L().Error().Err(err).Msg("registry register")
+		sessionLogger.Error().Err(err).Msg("registry register")
 		_ = webSocketConn.Close(websocket.StatusInternalError, "registry unavailable")
 		return
 	}
@@ -154,18 +156,17 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		TunnelURL: h.baseURL + "/v1/tunnel/" + sessionID + "/",
 	}
 	if err := conn.Send(r.Context(), hello); err != nil {
-		log.L().Warn().Err(err).Msg("send hello")
+		sessionLogger.Warn().Err(err).Msg("send hello")
 		conn.Close("hello send failed")
 		detachCtx, detachCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
 		if detachErr := h.registry.Detach(detachCtx, sessionID); detachErr != nil {
-			log.L().Warn().Err(detachErr).Str("session", sessionID).Msg("registry detach after hello failure")
+			sessionLogger.Warn().Err(detachErr).Msg("registry detach after hello failure")
 		}
 		detachCancel()
 		return
 	}
 
-	log.L().Info().
-		Str("session", sessionID).
+	sessionLogger.Info().
 		Str("sub", principal.Subject).
 		Str("tenant", principal.Tenant).
 		Bool("resumed", resumed).
@@ -180,9 +181,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
 	defer cancel()
 	if err := h.registry.Detach(cleanupCtx, sessionID); err != nil {
-		log.L().Warn().Err(err).Str("session", sessionID).Msg("registry detach")
+		sessionLogger.Warn().Err(err).Msg("registry detach")
 	}
-	log.L().Info().Str("session", sessionID).Msg("agent disconnected")
+	sessionLogger.Info().Msg("agent disconnected")
 }
 
 // resumeError carries an HTTP status plus message back to ServeHTTP so the
@@ -215,7 +216,7 @@ func (h *Handler) resolveSessionID(
 	cancel()
 	if err != nil {
 		if errors.Is(err, registry.ErrNotFound) {
-			log.L().Info().Str("session", hint).Msg("resume hint expired; minting new session")
+			log.Ctx(ctx).Info().Str("session", hint).Msg("resume hint expired; minting new session")
 			return uuid.NewString(), false, nil
 		}
 		return "", false, fmt.Errorf("registry lookup: %w", err)
@@ -225,7 +226,7 @@ func (h *Handler) resolveSessionID(
 	}
 
 	h.evictPriorOwner(ctx, sessionInfo)
-	log.L().Info().
+	log.Ctx(ctx).Info().
 		Str("session", hint).
 		Str("prev_node", sessionInfo.NodeID).
 		Str("state", sessionInfo.State).
@@ -246,7 +247,7 @@ func (h *Handler) evictPriorOwner(ctx context.Context, sessionInfo *registry.Ses
 	evictCtx, cancel := context.WithTimeout(ctx, localEvictTimeout)
 	defer cancel()
 	if err := h.registry.ForceClose(evictCtx, sessionInfo.SessionID); err != nil {
-		log.L().Warn().Err(err).Str("session", sessionInfo.SessionID).Msg("evict prior owner")
+		log.Ctx(ctx).Warn().Err(err).Str("session", sessionInfo.SessionID).Msg("evict prior owner")
 	}
 	// Brief settle so the prior owner's Detach runs before we Register.
 	// Remote evictions cross a pubsub hop; local ones are near-instant.

@@ -7,10 +7,10 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/rs/zerolog/log"
 
 	"github.com/lwj5/bridgertun/internal/auth"
 	"github.com/lwj5/bridgertun/internal/httpjson"
-	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/registry"
 )
 
@@ -57,13 +57,14 @@ func hasScope(scopes []string, want string) bool {
 }
 
 func (h *operatorHandler) listSessions(w http.ResponseWriter, r *http.Request) {
+	requestLogger := log.Ctx(r.Context())
 	filter := registry.Filter{
 		Subject: r.URL.Query().Get("sub"),
 		Tenant:  r.URL.Query().Get("tenant"),
 	}
 	sessions, err := h.registry.List(r.Context(), filter)
 	if err != nil {
-		log.L().Warn().Err(err).Msg("list sessions")
+		requestLogger.Warn().Err(err).Msg("list sessions")
 		http.Error(w, "registry error", http.StatusBadGateway)
 		return
 	}
@@ -78,7 +79,7 @@ func (h *operatorHandler) listSessions(w http.ResponseWriter, r *http.Request) {
 		entry.TunnelAuthHash = ""
 		redacted = append(redacted, entry)
 	}
-	httpjson.Write(w, http.StatusOK, redacted)
+	httpjson.Write(r.Context(), w, http.StatusOK, redacted)
 }
 
 func (h *operatorHandler) getSession(w http.ResponseWriter, r *http.Request) {
@@ -94,7 +95,7 @@ func (h *operatorHandler) getSession(w http.ResponseWriter, r *http.Request) {
 	}
 	redacted := *info
 	redacted.TunnelAuthHash = ""
-	httpjson.Write(w, http.StatusOK, redacted)
+	httpjson.Write(r.Context(), w, http.StatusOK, redacted)
 }
 
 func (h *operatorHandler) deleteSession(w http.ResponseWriter, r *http.Request) {

@@ -10,9 +10,10 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/google/uuid"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/lwj5/bridgertun/internal/auth"
-	"github.com/lwj5/bridgertun/internal/log"
 	"github.com/lwj5/bridgertun/internal/proxy"
 	"github.com/lwj5/bridgertun/internal/wire"
 )
@@ -24,6 +25,7 @@ type Connection struct {
 
 	webSocketConn *websocket.Conn
 	streams       *proxy.Registry
+	logger        zerolog.Logger
 
 	sendCh chan *wire.Envelope
 	done   chan struct{}
@@ -53,6 +55,7 @@ func NewConnection(
 		Principal:     principal,
 		webSocketConn: webSocketConn,
 		streams:       proxy.NewRegistry(),
+		logger:        log.With().Str("session", sessionID).Logger(),
 		sendCh:        make(chan *wire.Envelope, 64),
 		done:          make(chan struct{}),
 		pingInterval:  opts.PingInterval,
@@ -66,6 +69,9 @@ func (c *Connection) Done() <-chan struct{} { return c.done }
 
 // Run spawns read/write/heartbeat goroutines and blocks until the connection closes.
 func (c *Connection) Run(ctx context.Context) {
+	connectionLogger := log.Ctx(ctx).With().Str("session", c.SessionID).Logger()
+	c.logger = connectionLogger
+	ctx = connectionLogger.WithContext(ctx)
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -130,7 +136,7 @@ func (c *Connection) sendCancel(requestID string) {
 	case c.sendCh <- envelope:
 	case <-c.done:
 	case <-timer.C:
-		log.L().Warn().Str("session", c.SessionID).Str("requestID", requestID).Msg("cancel dropped: send buffer full")
+		c.logger.Warn().Str("requestID", requestID).Msg("cancel dropped: send buffer full")
 	}
 }
 
@@ -148,14 +154,14 @@ func (c *Connection) writePump(ctx context.Context, wg *sync.WaitGroup) {
 		case envelope := <-c.sendCh:
 			payload, err := wire.Encode(envelope)
 			if err != nil {
-				log.L().Error().Err(err).Str("session", c.SessionID).Msg("encode envelope")
+				log.Ctx(ctx).Error().Err(err).Msg("encode envelope")
 				continue
 			}
 			writeCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			err = c.webSocketConn.Write(writeCtx, websocket.MessageBinary, payload)
 			cancel()
 			if err != nil {
-				log.L().Warn().Err(err).Str("session", c.SessionID).Msg("ws write")
+				log.Ctx(ctx).Warn().Err(err).Msg("ws write")
 				return
 			}
 		case <-ticker.C:
@@ -163,7 +169,7 @@ func (c *Connection) writePump(ctx context.Context, wg *sync.WaitGroup) {
 			err := c.webSocketConn.Ping(pingCtx)
 			cancel()
 			if err != nil {
-				log.L().Warn().Err(err).Str("session", c.SessionID).Msg("ws ping failed")
+				log.Ctx(ctx).Warn().Err(err).Msg("ws ping failed")
 				return
 			}
 		}
@@ -180,7 +186,7 @@ func (c *Connection) readPump(ctx context.Context, cancel context.CancelFunc, wg
 	for {
 		messageType, data, err := c.webSocketConn.Read(ctx)
 		if err != nil {
-			log.L().Info().Err(err).Str("session", c.SessionID).Msg("ws read closed")
+			log.Ctx(ctx).Info().Err(err).Msg("ws read closed")
 			return
 		}
 		if messageType != websocket.MessageBinary {
@@ -188,14 +194,14 @@ func (c *Connection) readPump(ctx context.Context, cancel context.CancelFunc, wg
 		}
 		envelope, err := wire.Decode(data)
 		if err != nil {
-			log.L().Warn().Err(err).Str("session", c.SessionID).Msg("decode envelope")
+			log.Ctx(ctx).Warn().Err(err).Msg("decode envelope")
 			continue
 		}
-		c.dispatch(envelope)
+		c.dispatch(ctx, envelope)
 	}
 }
 
-func (c *Connection) dispatch(envelope *wire.Envelope) {
+func (c *Connection) dispatch(ctx context.Context, envelope *wire.Envelope) {
 	switch envelope.Type {
 	case wire.TypePong:
 		// handled by read deadline / ping keepalive
@@ -213,7 +219,7 @@ func (c *Connection) dispatch(envelope *wire.Envelope) {
 			c.streams.Remove(envelope.ID)
 		}
 	default:
-		log.L().Debug().Str("type", envelope.Type).Str("session", c.SessionID).Msg("unhandled envelope")
+		log.Ctx(ctx).Debug().Str("type", envelope.Type).Msg("unhandled envelope")
 	}
 }
 
