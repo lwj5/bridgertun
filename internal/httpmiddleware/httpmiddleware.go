@@ -13,7 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func Install(router chi.Router) {
+func Register(router chi.Router) {
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(hlog.NewHandler(log.Logger))

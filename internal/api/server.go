@@ -26,7 +26,7 @@ type Config struct {
 // routes, and health checks.
 func NewRouter(cfg Config, registry registry.Registry, verifier *auth.Verifier, rdb valkey.Client) http.Handler {
 	r := chi.NewRouter()
-	httpmiddleware.Install(r)
+	httpmiddleware.Register(r)
 
 	proxyHandler := newProxyHandler(cfg, registry)
 	operatorHandler := newOperatorHandler(registry, verifier)

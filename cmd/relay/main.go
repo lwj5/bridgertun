@@ -69,7 +69,7 @@ func main() {
 
 	// WS listener
 	webSocketMux := chi.NewRouter()
-	httpmiddleware.Install(webSocketMux)
+	httpmiddleware.Register(webSocketMux)
 	webSocketHandler := wspkg.NewHandler(wspkg.HandlerConfig{
 		AllowedOrigins:    cfg.AllowedOrigins,
 		PingInterval:      cfg.WSPingInterval,
