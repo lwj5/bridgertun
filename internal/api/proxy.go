@@ -101,6 +101,9 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			if querySecret := agentTokenFromQuery(r.URL.RawQuery); querySecret != "" {
 				headers["X-Tunnel-Agent-Auth"] = []string{querySecret}
 			}
+		case authSourceHeader:
+			// Tier 2 must come from its own X-Tunnel-Agent-Auth header when
+			// tier 1 was a header — Basic password and query are not promoted.
 		}
 	}
 	if firstHeaderValue(headers, "X-Tunnel-Agent-Auth") == "" {

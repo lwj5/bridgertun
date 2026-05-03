@@ -17,12 +17,13 @@ import (
 )
 
 const (
-	testAgentToken    = "agenttoken"
-	testSessionID     = "session-1"
+	testAgentToken      = "agenttoken"
+	testSessionID       = "session-1"
 	testTunnelAuthQuery = "x-tunnel-auth=relaytoken"
 )
 
 func TestStripTunnelAuthQuery(t *testing.T) {
+	const fooBar = "foo=bar"
 	cases := []struct {
 		name    string
 		raw     string
@@ -31,26 +32,26 @@ func TestStripTunnelAuthQuery(t *testing.T) {
 	}{
 		{
 			name:    "drops x-tunnel-auth with both tiers",
-			raw:     "x-tunnel-auth=relaytoken%3Aagenttoken&foo=bar",
-			mustHas: []string{"foo=bar"},
-			mustNot: []string{"x-tunnel-auth"},
+			raw:     tunnelAuthQueryKey + "=relaytoken%3Aagenttoken&" + fooBar,
+			mustHas: []string{fooBar},
+			mustNot: []string{tunnelAuthQueryKey},
 		},
 		{
 			name:    "drops x-tunnel-auth with tier-1 only",
-			raw:     testTunnelAuthQuery + "&foo=bar",
-			mustHas: []string{"foo=bar"},
-			mustNot: []string{"x-tunnel-auth"},
+			raw:     testTunnelAuthQuery + "&" + fooBar,
+			mustHas: []string{fooBar},
+			mustNot: []string{tunnelAuthQueryKey},
 		},
 		{
 			name:    "only x-tunnel-auth yields empty",
 			raw:     testTunnelAuthQuery,
 			mustHas: nil,
-			mustNot: []string{"x-tunnel-auth"},
+			mustNot: []string{tunnelAuthQueryKey},
 		},
 		{
 			name:    "no x-tunnel-auth is unchanged",
-			raw:     "foo=bar",
-			mustHas: []string{"foo=bar"},
+			raw:     fooBar,
+			mustHas: []string{fooBar},
 			mustNot: nil,
 		},
 	}
@@ -276,7 +277,7 @@ func (s *endProxyStream) Receive(ctx context.Context) (*wire.Envelope, error) {
 		return &wire.Envelope{Type: wire.TypeResponseEnd, EOF: true}, nil
 	}
 	<-ctx.Done()
-	return nil, ctx.Err()
+	return nil, fmt.Errorf("receive canceled: %w", ctx.Err())
 }
 
 func (*endProxyStream) Cancel()      {}
@@ -387,7 +388,10 @@ func TestProxyHandlerHeaderTier1DoesNotPromoteBasicPasswordToTier2(t *testing.T)
 		t.Fatalf("status = %d, want %d (body=%q)", recorder.Code, http.StatusOK, recorder.Body.String())
 	}
 	if got := firstHeaderValue(reg.captured.Headers, "X-Tunnel-Agent-Auth"); got != testAgentToken {
-		t.Fatalf("X-Tunnel-Agent-Auth = %q, want %q (explicit header must be kept; Basic password must not be promoted)", got, testAgentToken)
+		t.Fatalf(
+			"X-Tunnel-Agent-Auth = %q, want %q (explicit header must be kept; Basic password must not be promoted)",
+			got, testAgentToken,
+		)
 	}
 	// Authorization is preserved because tier-1 did not consume it.
 	if _, ok := reg.captured.Headers["Authorization"]; !ok {
