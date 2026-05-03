@@ -168,9 +168,9 @@ func cleanedHeaders(in map[string][]string) http.Header {
 	return out
 }
 
-// buildLocalURL joins localBase with envelopePath and strips the agent_secret
-// query param. It avoids the double-slash that naive concat produces when
-// localBase ends with '/' and envelopePath starts with '/'.
+// buildLocalURL joins localBase with envelopePath. It avoids the double-slash
+// that naive concat produces when localBase ends with '/' and envelopePath
+// starts with '/'.
 func buildLocalURL(localBase, envelopePath string) (string, error) {
 	base := strings.TrimSuffix(localBase, "/")
 	if envelopePath == "" {
@@ -179,13 +179,6 @@ func buildLocalURL(localBase, envelopePath string) (string, error) {
 	parsed, err := url.Parse(base + envelopePath)
 	if err != nil {
 		return "", fmt.Errorf("parse local url: %w", err)
-	}
-	if parsed.RawQuery != "" {
-		query := parsed.Query()
-		if query.Has("agent_secret") {
-			query.Del("agent_secret")
-			parsed.RawQuery = query.Encode()
-		}
 	}
 	return parsed.String(), nil
 }

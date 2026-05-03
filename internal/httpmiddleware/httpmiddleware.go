@@ -34,10 +34,8 @@ func Register(router chi.Router) {
 	router.Use(middleware.Recoverer)
 }
 
-// sanitizeURL returns the URL as a string with bearer-credential query
-// parameters removed so they never appear in access logs. Any key whose
-// lower-case form starts with "tunnel_" (e.g. tunnel_secret) or equals
-// "agent_secret" is stripped before logging.
+// sanitizeURL returns the URL as a string with the x-tunnel-auth credential
+// query parameter masked so tunnel credentials never appear in access logs.
 func sanitizeURL(u *url.URL) string {
 	if u.RawQuery == "" {
 		return u.String()
@@ -51,8 +49,7 @@ func sanitizeURL(u *url.URL) string {
 	}
 	redacted := false
 	for key := range values {
-		lower := strings.ToLower(key)
-		if strings.HasPrefix(lower, "tunnel_") || lower == "agent_secret" {
+		if strings.EqualFold(key, "x-tunnel-auth") {
 			values[key] = []string{"***"}
 			redacted = true
 		}

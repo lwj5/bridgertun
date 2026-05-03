@@ -90,13 +90,15 @@ the tunnel URL the caller should use:
 
 Once an agent is connected, any HTTP client can proxy requests through it.
 The caller presents **both** tiers on every request — Tier 1 to the relay,
-Tier 2 to the agent. Either tier can be sent as a header or as a URL query
-param, so SSE / EventSource clients that can't set headers are supported.
+Tier 2 to the agent. Each tier can be sent three ways, in priority order:
+header, then URL userinfo (HTTP Basic), then query parameter. The URL forms
+exist so SSE / EventSource clients and any tool that takes a single URL can
+authenticate without setting headers.
 
-| Tier | Header                   | URL fallback       | Checked by |
-| ---- | ------------------------ | ------------------ | ---------- |
-| 1    | `X-Tunnel-Auth: …`       | `?tunnel_secret=…` | Relay      |
-| 2    | `X-Tunnel-Agent-Auth: …` | `?agent_secret=…`  | Agent      |
+| Tier | Header                   | URL userinfo (Basic) | URL query                        | Checked by |
+| ---- | ------------------------ | -------------------- | -------------------------------- | ---------- |
+| 1    | `X-Tunnel-Auth: …`       | username             | `?x-tunnel-auth=<tier1>:<tier2>` | Relay      |
+| 2    | `X-Tunnel-Agent-Auth: …` | password             | (same key, part after `:`)       | Agent      |
 
 **Header mode (normal HTTP clients):**
 
@@ -106,17 +108,28 @@ curl -H "X-Tunnel-Auth: <relay_token>" \
      https://relay.example.com/v1/tunnel/<sessionID>/api/health
 ```
 
-**URL mode (EventSource / webhook producers that can't set headers):**
+**URL userinfo mode (browsers and any client that takes a single URL):**
 
 ```bash
-curl -N "https://relay.example.com/v1/tunnel/<sessionID>/events?tunnel_secret=<relay_token>&agent_secret=<agent_token>"
+curl https://<relay_token>:<agent_token>@relay.example.com/v1/tunnel/<sessionID>/api/health
 ```
 
-The relay strips `tunnel_*` query params before forwarding to the agent, so
-Tier 1 credentials do not leak onto the agent-side wire. If callers
-provide `agent_secret` in the URL, the relay moves it into
-`X-Tunnel-Agent-Auth` before forwarding and removes `agent_secret` from the
-forwarded query.
+HTTP clients translate `user:pass@host` into `Authorization: Basic
+base64(user:pass)`. The relay only strips that header from the forwarded
+envelope when it actually accepted those credentials for Tier 1 or Tier 2 —
+so a local service behind the agent that has its own unrelated Basic auth
+keeps working.
+
+**URL query mode (EventSource / webhook producers that can't set headers):**
+
+```bash
+curl -N "https://relay.example.com/v1/tunnel/<sessionID>/events?x-tunnel-auth=<relay_token>%3A<agent_token>"
+```
+
+Both tiers are encoded in a single `x-tunnel-auth` query parameter as
+`<relay_token>:<agent_token>` (colon-separated, URL-encode the colon as `%3A`
+when building URLs manually). The relay strips `x-tunnel-auth` before
+forwarding and promotes the agent token part into `X-Tunnel-Agent-Auth`.
 
 SSE and chunked responses stream end-to-end without buffering; the relay
 flushes each chunk immediately after it arrives from the agent.
@@ -145,7 +158,7 @@ session      : 550e8400-e29b-41d4-a716-446655440000
 tunnel       : http://localhost:9000/v1/tunnel/550e8400-.../
 relay token  : <relay_token>
 agent token  : <agent_token>
-example url  : http://localhost:9000/v1/tunnel/550e8400-.../?agent_secret=<agent_token>&tunnel_secret=<relay_token>
+example url  : http://localhost:9000/v1/tunnel/550e8400-.../?x-tunnel-auth=<relay_token>%3A<agent_token>
 example headers:
   X-Tunnel-Auth: <relay_token>
   X-Tunnel-Agent-Auth: <agent_token>
@@ -176,10 +189,10 @@ implementations in any language.
 
 Per-session auth is split into two independent tokens:
 
-| Token         | Known to relay                   | Checked by | Caller sends as                                   |
-| ------------- | -------------------------------- | ---------- | ------------------------------------------------- |
-| `relay_token` | bcrypt hash only (at WS connect) | Relay      | `X-Tunnel-Auth` or `tunnel_secret` query param    |
-| `agent_token` | never transmitted to the relay   | Agent      | `X-Tunnel-Agent-Auth` (relay maps `agent_secret`) |
+| Token         | Known to relay                   | Checked by | Caller sends as                                                                                           |
+| ------------- | -------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------- |
+| `relay_token` | bcrypt hash only (at WS connect) | Relay      | `X-Tunnel-Auth`, `Authorization: Basic` username, or `x-tunnel-auth` query (part before `:`)              |
+| `agent_token` | never transmitted to the relay   | Agent      | `X-Tunnel-Agent-Auth` (relay maps `Authorization: Basic` password / `x-tunnel-auth` query part after `:`) |
 
 Requirements:
 
@@ -216,9 +229,17 @@ Before issuing the local HTTP request, remove:
 - `X-Tunnel-Session-Internal` header
 - `Host` header (allow client transport to set it)
 
-The relay strips `tunnel_*` and `agent_secret` query parameters on its side,
-while promoting `agent_secret` to `X-Tunnel-Agent-Auth`. Together this keeps
-Tier 1 and Tier 2 secrets out of downstream service logs.
+The relay strips the `x-tunnel-auth` query parameter and the `X-Tunnel-Auth`
+header on its side, while promoting the agent-token portion (or the
+`Authorization: Basic` password, when that was the caller's source) to
+`X-Tunnel-Agent-Auth`. The relay also removes the `Authorization` header
+when it accepted Basic credentials for Tier 1, so the relay token never
+reaches the agent — but leaves it alone otherwise, so a local service with
+its own unrelated Basic auth keeps working. Requests that resolve to an
+empty `X-Tunnel-Agent-Auth`
+are rejected with `401` before dispatch — the caller must always supply both
+tiers. Together this keeps Tier 1 and Tier 2 secrets out of downstream
+service logs.
 
 ### Translating request envelopes to local HTTP
 

@@ -76,8 +76,7 @@ func tunnelURLWithCredentials(tunnelURL string, tokens *sessionTokens) string {
 	}
 
 	query := parsed.Query()
-	query.Set("tunnel_secret", tokens.RelayToken)
-	query.Set("agent_secret", tokens.AgentToken)
+	query.Set("x-tunnel-auth", tokens.RelayToken+":"+tokens.AgentToken)
 	parsed.RawQuery = query.Encode()
 
 	return parsed.String()

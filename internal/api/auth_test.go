@@ -21,20 +21,28 @@ func TestVerifyBearerAcceptsAuthorizationHeader(t *testing.T) {
 	t.Parallel()
 
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
-	request.Header.Set("X-Tunnel-Auth", "Bearer relay-secret")
+	request.Header.Set("X-Tunnel-Auth", "relay-secret")
 
-	if !verifyBearer(request, mustTunnelHash(t, "relay-secret")) {
-		t.Fatal("verifyBearer() = false, want true")
+	ok, source := verifyBearer(request, mustTunnelHash(t, "relay-secret"))
+	if !ok {
+		t.Fatal("verifyBearer() ok = false, want true")
+	}
+	if source != authSourceHeader {
+		t.Fatalf("verifyBearer() source = %v, want authSourceHeader", source)
 	}
 }
 
 func TestVerifyBearerFallsBackToQuerySecret(t *testing.T) {
 	t.Parallel()
 
-	request := httptest.NewRequest(http.MethodGet, "/?tunnel_secret=relay-secret", nil)
+	request := httptest.NewRequest(http.MethodGet, "/?x-tunnel-auth=relay-secret:agent-token", nil)
 
-	if !verifyBearer(request, mustTunnelHash(t, "relay-secret")) {
-		t.Fatal("verifyBearer() = false, want true")
+	ok, source := verifyBearer(request, mustTunnelHash(t, "relay-secret"))
+	if !ok {
+		t.Fatal("verifyBearer() ok = false, want true")
+	}
+	if source != authSourceQuery {
+		t.Fatalf("verifyBearer() source = %v, want authSourceQuery", source)
 	}
 }
 
@@ -44,7 +52,62 @@ func TestVerifyBearerRejectsWrongSecret(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "/", nil)
 	request.Header.Set("X-Tunnel-Auth", "wrong-secret")
 
-	if verifyBearer(request, mustTunnelHash(t, "relay-secret")) {
-		t.Fatal("verifyBearer() = true, want false")
+	if ok, _ := verifyBearer(request, mustTunnelHash(t, "relay-secret")); ok {
+		t.Fatal("verifyBearer() ok = true, want false")
+	}
+}
+
+func TestVerifyBearerAcceptsBasicAuthUsername(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.SetBasicAuth("relay-secret", "agent-token-ignored-here")
+
+	ok, source := verifyBearer(request, mustTunnelHash(t, "relay-secret"))
+	if !ok {
+		t.Fatal("verifyBearer() ok = false, want true")
+	}
+	if source != authSourceBasic {
+		t.Fatalf("verifyBearer() source = %v, want authSourceBasic", source)
+	}
+}
+
+func TestVerifyBearerHeaderTakesPrecedenceOverBasic(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.Header.Set("X-Tunnel-Auth", "relay-secret")
+	request.SetBasicAuth("some-other-username", "agent-token")
+
+	ok, source := verifyBearer(request, mustTunnelHash(t, "relay-secret"))
+	if !ok {
+		t.Fatal("verifyBearer() ok = false, want true")
+	}
+	if source != authSourceHeader {
+		t.Fatalf("verifyBearer() source = %v, want authSourceHeader when header present", source)
+	}
+}
+
+func TestVerifyBearerBasicTakesPrecedenceOverQuery(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/?x-tunnel-auth=relay-secret", nil)
+	request.SetBasicAuth("wrong-basic-username", "agent-token")
+
+	// Basic is non-empty but does not match the hash; per priority semantics
+	// we must NOT fall through to query.
+	if ok, _ := verifyBearer(request, mustTunnelHash(t, "relay-secret")); ok {
+		t.Fatal("verifyBearer() ok = true; expected Basic to win and fail without falling back to query")
+	}
+}
+
+func TestVerifyBearerRejectsWrongBasicUsername(t *testing.T) {
+	t.Parallel()
+
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.SetBasicAuth("not-the-secret", "")
+
+	if ok, _ := verifyBearer(request, mustTunnelHash(t, "relay-secret")); ok {
+		t.Fatal("verifyBearer() ok = true, want false for wrong Basic username")
 	}
 }
