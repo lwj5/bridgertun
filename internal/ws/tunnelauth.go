@@ -16,10 +16,12 @@ import (
 // (the reference agent uses cost 10) while blocking malicious high-cost hashes.
 const maxBcryptCost = 14
 
+const tunnelSecretHashHeader = "X-Tunnel-Secret-Hash"
+
 // ParseTunnelAuth extracts the bcrypt hash from X-Tunnel-Secret-Hash and
 // validates its format. Returns the hash string on success.
 func ParseTunnelAuth(h http.Header) (string, error) {
-	hash := strings.TrimSpace(h.Get("X-Tunnel-Secret-Hash"))
+	hash := strings.TrimSpace(h.Get(tunnelSecretHashHeader))
 	if hash == "" {
 		return "", errors.New("X-Tunnel-Secret-Hash header is required")
 	}

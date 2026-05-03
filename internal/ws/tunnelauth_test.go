@@ -35,7 +35,7 @@ func spoofBcryptCost(t *testing.T, hash string, cost int) string {
 
 func TestParseTunnelAuth_BearerHash(t *testing.T) {
 	hash := mustHash(t, "supersecret")
-	got, err := ParseTunnelAuth(http.Header{"X-Tunnel-Secret-Hash": {hash}})
+	got, err := ParseTunnelAuth(http.Header{tunnelSecretHashHeader: {hash}})
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
@@ -45,7 +45,7 @@ func TestParseTunnelAuth_BearerHash(t *testing.T) {
 }
 
 func TestParseTunnelAuth_RejectsInvalidHash(t *testing.T) {
-	h := http.Header{"X-Tunnel-Secret-Hash": {"not-a-bcrypt-hash"}}
+	h := http.Header{tunnelSecretHashHeader: {"not-a-bcrypt-hash"}}
 	if _, err := ParseTunnelAuth(h); err == nil {
 		t.Fatalf("expected error, got nil")
 	}
@@ -62,7 +62,7 @@ func TestParseTunnelAuth_RejectsExcessiveCost(t *testing.T) {
 	t.Parallel()
 	// Spoof cost to maxBcryptCost+1 so we don't pay the actual work-factor.
 	hash := spoofBcryptCost(t, mustHash(t, "secret"), maxBcryptCost+1)
-	_, err := ParseTunnelAuth(http.Header{"X-Tunnel-Secret-Hash": {hash}})
+	_, err := ParseTunnelAuth(http.Header{tunnelSecretHashHeader: {hash}})
 	if err == nil {
 		t.Fatalf("expected error for cost > %d, got nil", maxBcryptCost)
 	}
@@ -72,7 +72,7 @@ func TestParseTunnelAuth_AcceptsMaxCost(t *testing.T) {
 	t.Parallel()
 	// Spoof cost to exactly maxBcryptCost — should be accepted.
 	hash := spoofBcryptCost(t, mustHash(t, "secret"), maxBcryptCost)
-	got, err := ParseTunnelAuth(http.Header{"X-Tunnel-Secret-Hash": {hash}})
+	got, err := ParseTunnelAuth(http.Header{tunnelSecretHashHeader: {hash}})
 	if err != nil {
 		t.Fatalf("unexpected error at cost %d: %v", maxBcryptCost, err)
 	}
