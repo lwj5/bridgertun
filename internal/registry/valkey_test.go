@@ -8,6 +8,8 @@ import (
 	"github.com/lwj5/bridgertun/internal/wire"
 )
 
+const testSessionID = "session-1"
+
 type stubLocalSender struct {
 	closeReason string
 	done        chan struct{}
@@ -51,10 +53,10 @@ func TestValkeyRegistryHandleCtrlCloseClosesLocalSender(t *testing.T) {
 
 	sender := &stubLocalSender{}
 	registry := &ValkeyRegistry{locals: map[string]*localEntry{
-		"session-1": {sender: sender},
+		testSessionID: {sender: sender},
 	}}
 
-	registry.handleCtrl(context.Background(), &ctrlMessage{Type: ctrlTypeClose, SessionID: "session-1"})
+	registry.handleCtrl(context.Background(), &ctrlMessage{Type: ctrlTypeClose, SessionID: testSessionID})
 
 	if sender.closeReason != "forced by remote" {
 		t.Fatalf("closeReason = %q, want %q", sender.closeReason, "forced by remote")
@@ -72,15 +74,15 @@ func TestValkeyDetachWithStaleSender(t *testing.T) {
 
 	registry := &ValkeyRegistry{
 		locals: map[string]*localEntry{
-			"session-1": {sender: newSender},
+			testSessionID: {sender: newSender},
 		},
 	}
 
 	// Detach called with the OLD sender must not delete the NEW entry.
-	if err := registry.Detach(context.Background(), "session-1", oldSender); err != nil {
+	if err := registry.Detach(context.Background(), testSessionID, oldSender); err != nil {
 		t.Fatalf("Detach() error = %v", err)
 	}
-	if _, ok := registry.locals["session-1"]; !ok {
+	if _, ok := registry.locals[testSessionID]; !ok {
 		t.Fatal("Detach with stale sender deleted the new local entry")
 	}
 }
@@ -95,7 +97,7 @@ func TestValkeyDetachWithMatchingSender(t *testing.T) {
 	cancelCalled := false
 	registry := &ValkeyRegistry{
 		locals: map[string]*localEntry{
-			"session-1": {
+			testSessionID: {
 				sender: sender,
 				cancel: func() { cancelCalled = true },
 				info:   nil, // causes early return before any Valkey I/O
@@ -103,10 +105,10 @@ func TestValkeyDetachWithMatchingSender(t *testing.T) {
 		},
 	}
 
-	if err := registry.Detach(context.Background(), "session-1", sender); err != nil {
+	if err := registry.Detach(context.Background(), testSessionID, sender); err != nil {
 		t.Fatalf("Detach() error = %v", err)
 	}
-	if _, ok := registry.locals["session-1"]; ok {
+	if _, ok := registry.locals[testSessionID]; ok {
 		t.Fatal("Detach with matching sender did not remove local entry")
 	}
 	if !cancelCalled {
@@ -121,11 +123,11 @@ func TestValkeyLocalSenderFor(t *testing.T) {
 	sender := &stubLocalSender{}
 	registry := &ValkeyRegistry{
 		locals: map[string]*localEntry{
-			"session-1": {sender: sender},
+			testSessionID: {sender: sender},
 		},
 	}
 
-	got, ok := registry.LocalSenderFor("session-1")
+	got, ok := registry.LocalSenderFor(testSessionID)
 	if !ok {
 		t.Fatal("LocalSenderFor returned false for a known local session")
 	}
