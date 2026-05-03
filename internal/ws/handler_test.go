@@ -29,8 +29,13 @@ func (s handlerRegistryStub) Unregister(context.Context, string) error {
 	panic("unexpected Unregister call")
 }
 
-func (s handlerRegistryStub) Detach(context.Context, string) error {
+func (s handlerRegistryStub) Detach(context.Context, string, registry.LocalSender) error {
 	panic("unexpected Detach call")
+}
+
+//nolint:ireturn // Registry interface requires returning LocalSender.
+func (s handlerRegistryStub) LocalSenderFor(string) (registry.LocalSender, bool) {
+	return nil, false
 }
 
 func (s handlerRegistryStub) Lookup(ctx context.Context, sessionID string) (*registry.SessionInfo, error) {

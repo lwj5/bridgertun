@@ -159,7 +159,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		sessionLogger.Warn().Err(err).Msg("send hello")
 		conn.Close("hello send failed")
 		detachCtx, detachCancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
-		if detachErr := h.registry.Detach(detachCtx, sessionID); detachErr != nil {
+		if detachErr := h.registry.Detach(detachCtx, sessionID, conn); detachErr != nil {
 			sessionLogger.Warn().Err(detachErr).Msg("registry detach after hello failure")
 		}
 		detachCancel()
@@ -177,10 +177,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Cleanup. r.Context() is already canceled by the time Run returns, so
 	// derive the cleanup deadline from a non-canceled parent. Use Detach
 	// instead of Unregister so the agent can reconnect within the grace
-	// window and resume with the same session ID.
+	// window and resume with the same session ID. Pass conn so Detach can
+	// guard against tearing down a replacement connection on the same node.
 	cleanupCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
 	defer cancel()
-	if err := h.registry.Detach(cleanupCtx, sessionID); err != nil {
+	if err := h.registry.Detach(cleanupCtx, sessionID, conn); err != nil {
 		sessionLogger.Warn().Err(err).Msg("registry detach")
 	}
 	sessionLogger.Info().Msg("agent disconnected")
@@ -241,6 +242,12 @@ func (h *Handler) evictPriorOwner(ctx context.Context, sessionInfo *registry.Ses
 	if sessionInfo.State == registry.SessionStateDetached {
 		return
 	}
+
+	// Grab the prior local sender's Done channel before closing it.
+	// For local sessions we can block on Done() instead of sleeping;
+	// for remote sessions we fall back to the pubsub settle delay.
+	priorSender, isLocal := h.registry.LocalSenderFor(sessionInfo.SessionID)
+
 	// Ask the owner (local or remote) to close its WebSocket. ForceClose
 	// handles both cases by publishing a pubsub message to the owning node
 	// when it isn't us.
@@ -249,10 +256,20 @@ func (h *Handler) evictPriorOwner(ctx context.Context, sessionInfo *registry.Ses
 	if err := h.registry.ForceClose(evictCtx, sessionInfo.SessionID); err != nil {
 		log.Ctx(ctx).Warn().Err(err).Str("session", sessionInfo.SessionID).Msg("evict prior owner")
 	}
-	// Brief settle so the prior owner's Detach runs before we Register.
-	// Remote evictions cross a pubsub hop; local ones are near-instant.
-	select {
-	case <-time.After(remoteEvictTimeout):
-	case <-ctx.Done():
+
+	if isLocal {
+		// Wait for the local owner's goroutine to finish so its deferred
+		// Detach runs before we call Register. Sender-aware Detach is the
+		// correctness guard; this wait makes eviction deterministic.
+		select {
+		case <-priorSender.Done():
+		case <-evictCtx.Done():
+		}
+	} else {
+		// Remote evictions cross a pubsub hop; brief settle is sufficient.
+		select {
+		case <-time.After(remoteEvictTimeout):
+		case <-ctx.Done():
+		}
 	}
 }

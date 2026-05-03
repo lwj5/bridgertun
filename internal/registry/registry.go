@@ -74,7 +74,14 @@ type Registry interface {
 	// Detach marks a session as disconnected without deleting its persisted
 	// record. The session row remains in the registry for the TTL grace
 	// window so the agent can reconnect and resume with the same ID.
-	Detach(ctx context.Context, sessionID string) error
+	// sender must be the LocalSender that was passed to Register; the
+	// registry will skip the cleanup if a newer sender has already taken
+	// over the session (same-node resume race guard).
+	Detach(ctx context.Context, sessionID string, sender LocalSender) error
+	// LocalSenderFor returns the LocalSender currently held for a session on
+	// this node, if any. Used by the resume path to wait on the prior
+	// owner's Done() channel before re-registering.
+	LocalSenderFor(sessionID string) (LocalSender, bool)
 	// Lookup returns the persisted metadata for a session.
 	Lookup(ctx context.Context, sessionID string) (*SessionInfo, error)
 	// Dispatch opens a proxy stream to the target session. It resolves to a

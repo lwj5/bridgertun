@@ -153,8 +153,13 @@ func (timeoutRegistry) Unregister(context.Context, string) error {
 	panic("unexpected Unregister call")
 }
 
-func (timeoutRegistry) Detach(context.Context, string) error {
+func (timeoutRegistry) Detach(context.Context, string, registry.LocalSender) error {
 	panic("unexpected Detach call")
+}
+
+//nolint:ireturn // Registry interface requires returning LocalSender.
+func (timeoutRegistry) LocalSenderFor(string) (registry.LocalSender, bool) {
+	return nil, false
 }
 
 func (r timeoutRegistry) Lookup(context.Context, string) (*registry.SessionInfo, error) {
