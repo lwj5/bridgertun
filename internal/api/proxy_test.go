@@ -458,36 +458,6 @@ func TestProxyHandlerQueryTier1PromotesAgentSecretToTier2(t *testing.T) {
 	}
 }
 
-func TestProxyHandlerStripsOnlyConsumedBasicAuthorizationValue(t *testing.T) {
-	t.Parallel()
-
-	_, reg, router := newCaptureHandler(t)
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "/v1/tunnel/"+testSessionID+"/api", nil)
-	// Tier 1 + tier 2 via Basic, then additional Authorization values for the
-	// local service (a Bearer and an unrelated Basic). Only the relay's own
-	// Basic value should be stripped; the rest must survive.
-	request.SetBasicAuth("relay-secret", testAgentToken)
-	request.Header.Add("Authorization", "Bearer local-service-jwt")
-	request.Header.Add("Authorization", "Basic bG9jYWw6c2VydmljZQ==")
-
-	router.ServeHTTP(recorder, request)
-
-	if recorder.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d (body=%q)", recorder.Code, http.StatusOK, recorder.Body.String())
-	}
-	values := reg.captured.Headers["Authorization"]
-	want := []string{"Bearer local-service-jwt", "Basic bG9jYWw6c2VydmljZQ=="}
-	if len(values) != len(want) {
-		t.Fatalf("Authorization = %v, want %v", values, want)
-	}
-	for i, value := range values {
-		if value != want[i] {
-			t.Fatalf("Authorization[%d] = %q, want %q (full slice %v)", i, value, want[i], values)
-		}
-	}
-}
-
 func TestProxyHandlerExplicitTier2HeaderWinsOverBasicPassword(t *testing.T) {
 	t.Parallel()
 

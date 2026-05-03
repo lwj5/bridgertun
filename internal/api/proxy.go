@@ -110,27 +110,8 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing agent token", http.StatusUnauthorized)
 		return
 	}
-	// Authorization may carry the Basic-auth tier-1 credential we just
-	// consumed. Drop only that exact value — additional Authorization
-	// headers (e.g. a Bearer for the local service) belong to the
-	// downstream and must survive.
 	if tier1Source == authSourceBasic {
-		consumed := r.Header.Get("Authorization")
-		values := headers["Authorization"]
-		filtered := make([]string, 0, len(values))
-		removed := false
-		for _, value := range values {
-			if !removed && value == consumed {
-				removed = true
-				continue
-			}
-			filtered = append(filtered, value)
-		}
-		if len(filtered) == 0 {
-			delete(headers, "Authorization")
-		} else {
-			headers["Authorization"] = filtered
-		}
+		delete(headers, "Authorization")
 	}
 	if ip := clientIP(r, h.cfg.TrustedProxies); ip != "" {
 		headers["X-Forwarded-For"] = append(headers["X-Forwarded-For"], ip)
