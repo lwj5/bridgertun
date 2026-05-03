@@ -2,7 +2,6 @@ package agent
 
 import (
 	"context"
-	"net/url"
 	"testing"
 
 	"github.com/lwj5/bridgertun/internal/wire"
@@ -47,29 +46,6 @@ func TestCleanedHeadersStripsRelayInternalHeaders(t *testing.T) {
 	}
 	if got := cleaned.Get("Content-Type"); got != "application/json" {
 		t.Fatalf("Content-Type = %q, want %q", got, "application/json")
-	}
-}
-
-func TestBuildLocalURLStripsAgentSecret(t *testing.T) {
-	t.Parallel()
-
-	got, err := buildLocalURL("http://127.0.0.1:3000/", "/api/events?agent_secret=topsecret&foo=bar")
-	if err != nil {
-		t.Fatalf("buildLocalURL() error = %v", err)
-	}
-
-	parsed, err := url.Parse(got)
-	if err != nil {
-		t.Fatalf("parse returned url: %v", err)
-	}
-	if parsed.Path != "/api/events" {
-		t.Fatalf("Path = %q, want %q", parsed.Path, "/api/events")
-	}
-	if parsed.Query().Get("agent_secret") != "" {
-		t.Fatalf("agent_secret survived in query: %q", parsed.RawQuery)
-	}
-	if parsed.Query().Get("foo") != "bar" {
-		t.Fatalf("foo query = %q, want %q", parsed.Query().Get("foo"), "bar")
 	}
 }
 

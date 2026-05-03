@@ -60,7 +60,8 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !verifyBearer(r, info.TunnelAuthHash) {
+	ok, tier1Source := verifyBearer(r, info.TunnelAuthHash)
+	if !ok {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -83,14 +84,34 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if tunnelPath == "" {
 		tunnelPath = "/"
 	}
-	agentSecret := agentSecretFromQuery(r.URL.RawQuery)
 	if rq := stripTunnelAuthQuery(r.URL.RawQuery); rq != "" {
 		tunnelPath += "?" + rq
 	}
 
 	headers := filteredHeaders(r.Header)
-	if firstHeaderValue(headers, "X-Tunnel-Agent-Auth") == "" && agentSecret != "" {
-		headers["X-Tunnel-Agent-Auth"] = []string{agentSecret}
+	// Tier-1 credential is for the relay only; never forward it to the agent.
+	delete(headers, "X-Tunnel-Auth")
+	if firstHeaderValue(headers, "X-Tunnel-Agent-Auth") == "" {
+		switch tier1Source {
+		case authSourceBasic:
+			if _, basicPassword, hasBasic := r.BasicAuth(); hasBasic && basicPassword != "" {
+				headers["X-Tunnel-Agent-Auth"] = []string{basicPassword}
+			}
+		case authSourceQuery:
+			if querySecret := agentTokenFromQuery(r.URL.RawQuery); querySecret != "" {
+				headers["X-Tunnel-Agent-Auth"] = []string{querySecret}
+			}
+		case authSourceHeader:
+			// Tier 2 must come from its own X-Tunnel-Agent-Auth header when
+			// tier 1 was a header — Basic password and query are not promoted.
+		}
+	}
+	if firstHeaderValue(headers, "X-Tunnel-Agent-Auth") == "" {
+		http.Error(w, "missing agent token", http.StatusUnauthorized)
+		return
+	}
+	if tier1Source == authSourceBasic {
+		delete(headers, "Authorization")
 	}
 	if ip := clientIP(r, h.cfg.TrustedProxies); ip != "" {
 		headers["X-Forwarded-For"] = append(headers["X-Forwarded-For"], ip)
@@ -254,11 +275,11 @@ func (h *proxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-const reservedTunnelQueryPrefix = "tunnel_"
+const tunnelAuthQueryKey = "x-tunnel-auth"
 
-// stripTunnelAuthQuery removes relay-facing credential query params from the
-// forwarded query string and also removes agent_secret, which is moved into
-// X-Tunnel-Agent-Auth by the relay before forwarding.
+// stripTunnelAuthQuery removes the x-tunnel-auth credential query param from
+// the forwarded query string. Both tiers are encoded in that single key so
+// only one key needs stripping.
 func stripTunnelAuthQuery(raw string) string {
 	if raw == "" {
 		return ""
@@ -267,20 +288,17 @@ func stripTunnelAuthQuery(raw string) string {
 	if err != nil {
 		return raw
 	}
-	stripped := false
-	for k := range values {
-		if strings.HasPrefix(k, reservedTunnelQueryPrefix) || k == "agent_secret" {
-			values.Del(k)
-			stripped = true
-		}
-	}
-	if !stripped {
+	if _, ok := values[tunnelAuthQueryKey]; !ok {
 		return raw
 	}
+	values.Del(tunnelAuthQueryKey)
 	return values.Encode()
 }
 
-func agentSecretFromQuery(raw string) string {
+// agentTokenFromQuery extracts the tier-2 agent token from the x-tunnel-auth
+// query param. The value format is "<tier1>:<tier2>"; returns empty when no
+// colon is present.
+func agentTokenFromQuery(raw string) string {
 	if raw == "" {
 		return ""
 	}
@@ -288,7 +306,11 @@ func agentSecretFromQuery(raw string) string {
 	if err != nil {
 		return ""
 	}
-	return values.Get("agent_secret")
+	_, agentToken, found := strings.Cut(values.Get(tunnelAuthQueryKey), ":")
+	if !found {
+		return ""
+	}
+	return agentToken
 }
 
 func filteredHeaders(in http.Header) map[string][]string {

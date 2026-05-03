@@ -56,7 +56,7 @@ func TestFormatOperatorBlockIncludesExamples(t *testing.T) {
 		"tunnel       : https://relay.example.com/v1/tunnel/session-123/",
 		"relay token  : relay-token",
 		"agent token  : agent-token",
-		"example url  : https://relay.example.com/v1/tunnel/session-123/?agent_secret=agent-token&tunnel_secret=relay-token",
+		"example url  : https://relay.example.com/v1/tunnel/session-123/?x-tunnel-auth=relay-token%3Aagent-token",
 		"example headers:",
 		"X-Tunnel-Auth: relay-token",
 		"X-Tunnel-Agent-Auth: agent-token",
@@ -87,11 +87,8 @@ func TestTunnelURLWithCredentialsPreservesExistingQuery(t *testing.T) {
 	if query.Get("stream") != "1" {
 		t.Fatalf("stream query = %q, want 1", query.Get("stream"))
 	}
-	if query.Get("tunnel_secret") != testRelayToken {
-		t.Fatalf("tunnel_secret = %q, want relay-token", query.Get("tunnel_secret"))
-	}
-	if query.Get("agent_secret") != testAgentToken {
-		t.Fatalf("agent_secret = %q, want agent-token", query.Get("agent_secret"))
+	if got, want := query.Get("x-tunnel-auth"), testRelayToken+":"+testAgentToken; got != want {
+		t.Fatalf("x-tunnel-auth = %q, want %q", got, want)
 	}
 }
 
